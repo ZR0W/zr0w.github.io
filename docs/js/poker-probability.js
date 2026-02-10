@@ -93,22 +93,30 @@
     if (btn) btn.disabled = state.drawnOrder.length === 0;
   }
 
+  function probToStyle(prob, cardsLeft) {
+    var maxProb = cardsLeft > 0 ? CARDS_PER_VALUE / cardsLeft : 0;
+    var ratio = maxProb > 0 ? prob / maxProb : 0;
+    var hue = 120 * ratio;
+    return 'background: hsl(' + hue + ', 70%, 92%); color: hsl(' + hue + ', 50%, 22%);';
+  }
+
   function renderTable() {
     var cardsLeftEl = document.getElementById('cardsLeft');
     var tbody = document.getElementById('probBody');
     if (cardsLeftEl) cardsLeftEl.textContent = getCardsLeft();
     if (!tbody) return;
 
-    tbody.innerHTML = '';
     var left = getCardsLeft();
+    tbody.innerHTML = '';
     VALUES.forEach(function (value) {
       var remaining = CARDS_PER_VALUE - getDrawnCount(value);
       var prob = left > 0 ? probabilityNextCard(value) : 0;
+      var style = probToStyle(prob, left);
       var tr = document.createElement('tr');
       tr.innerHTML =
         '<td><strong>' + value + '</strong></td>' +
         '<td>' + remaining + '</td>' +
-        '<td class="prob-pct">' + (prob * 100).toFixed(2) + '%</td>';
+        '<td class="prob-pct" style="' + style + '">' + (prob * 100).toFixed(2) + '%</td>';
       tbody.appendChild(tr);
     });
   }
