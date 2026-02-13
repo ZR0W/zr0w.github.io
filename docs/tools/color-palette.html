@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random color palette picker – Webtools</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <style>
+        a.back { margin-bottom: 1rem; display: inline-block; }
+        .controls { margin: 1rem 0; padding: 1rem; background: #f5f5f5; border-radius: 6px; }
+        .controls label { margin-right: 0.5rem; }
+        .controls input[type="number"] { width: 4rem; margin-right: 1rem; }
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .color-square {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 2px solid rgba(0,0,0,0.1);
+        }
+        .color-swatch {
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .color-swatch:hover { transform: scale(1.02); }
+        .color-actions {
+            padding: 0.5rem 0.6rem;
+            background: #fff;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+        .color-actions button {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background: #fafafa;
+        }
+        .color-actions button:hover { background: #eee; }
+        .color-actions button.keep { background: #e8f5e9; border-color: #81c784; }
+        .color-actions button.keep.kept { background: #4caf50; color: #fff; border-color: #388e3c; }
+        .color-hex { font-family: monospace; font-size: 0.85rem; margin-right: auto; min-width: 4.5rem; }
+        .color-picker-wrap { display: flex; align-items: center; gap: 0.25rem; }
+        .color-picker-wrap input[type="color"] {
+            width: 28px;
+            height: 24px;
+            padding: 2px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <a class="back" href="../index.html">← Back</a>
+    <h1>Random color palette picker</h1>
+    <p>Generate random color palettes. Use "Keep" to lock colors on next generate. Re-generate individual colors or override with a hex picker.</p>
+
+    <div class="controls">
+        <label for="colorCount">Colors to generate:</label>
+        <input type="number" id="colorCount" min="2" max="20" value="5">
+        <button type="button" id="generateBtn">Generate palette</button>
+    </div>
+
+    <div class="color-grid" id="colorGrid"></div>
+
+    <script src="../js/color-palette.js"></script>
+</body>
+</html>
