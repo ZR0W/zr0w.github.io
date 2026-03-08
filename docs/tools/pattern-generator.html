@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seamless quadrant pattern generator – Webtools</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <style>
+        a.back { margin-bottom: 1rem; display: inline-block; }
+        .pattern-tool { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; margin: 1rem 0; }
+        .pattern-toolbar {
+            flex: 0 0 auto;
+            padding: 1rem;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            min-width: 180px;
+        }
+        .pattern-toolbar label { display: block; font-weight: bold; margin-bottom: 0.25rem; }
+        .pattern-toolbar input[type="color"] {
+            width: 100%;
+            height: 2.5rem;
+            padding: 2px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .pattern-toolbar input[type="range"] { width: 100%; }
+        .pattern-toolbar button {
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid #333;
+            background: #fff;
+            font-size: 0.95rem;
+        }
+        .pattern-toolbar button:hover { background: #eee; }
+        .pattern-toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pattern-toolbar button.primary { background: #333; color: #fff; }
+        .pattern-toolbar button.primary:hover { background: #555; }
+        .pattern-canvas-wrap {
+            flex: 1 1 auto;
+            min-width: 200px;
+            touch-action: none;
+            user-select: none;
+        }
+        .pattern-canvas-wrap canvas { display: block; border: 1px solid #ccc; border-radius: 6px; max-width: 100%; }
+        .pattern-design { display: block; }
+        .pattern-view { display: none; position: fixed; inset: 0; z-index: 10; background: #fff; flex-direction: column; }
+        .pattern-view.active { display: flex; }
+        .pattern-view-bar {
+            flex: 0 0 auto;
+            padding: 0.75rem 1rem;
+            background: #f0f0f0;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .pattern-view-bar a, .pattern-view-bar button {
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            text-decoration: none;
+            color: inherit;
+            border: 1px solid #333;
+            background: #fff;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .pattern-view-bar a:hover, .pattern-view-bar button:hover { background: #eee; }
+        .pattern-view-canvas-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+        .pattern-view-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+        .brush-size-value { font-variant-numeric: tabular-nums; min-width: 2rem; }
+    </style>
+</head>
+<body>
+    <a class="back" href="../index.html">← Back</a>
+    <h1>Seamless quadrant pattern generator</h1>
+    <p>Draw in four quadrants, shuffle for seamless tiling, then view and export an infinite pannable pattern.</p>
+
+    <div id="patternDesign" class="pattern-design">
+        <div class="pattern-tool">
+            <aside class="pattern-toolbar" aria-label="Drawing tools">
+                <div>
+                    <label for="patternColor">Color</label>
+                    <input type="color" id="patternColor" value="#000000" aria-label="Brush color">
+                </div>
+                <div>
+                    <label for="patternBrushSize">Brush size <span class="brush-size-value" id="brushSizeValue">5</span>px</label>
+                    <input type="range" id="patternBrushSize" min="1" max="50" value="5" aria-label="Brush size">
+                </div>
+                <div>
+                    <label for="patternGuides">Show quadrant guides</label>
+                    <input type="checkbox" id="patternGuides" checked aria-label="Show quadrant guides">
+                </div>
+                <div>
+                    <button type="button" id="patternUndo" disabled>Undo</button>
+                    <button type="button" id="patternRedo" disabled>Redo</button>
+                </div>
+                <div>
+                    <label for="patternConfig">Configuration</label>
+                    <select id="patternConfig" aria-label="Quadrant configuration">
+                        <option value="0">Original (A|B / C|D)</option>
+                        <option value="1">Diagonal (D|C / B|A)</option>
+                        <option value="2">Left–right (B|A / D|C)</option>
+                        <option value="3">Top–bottom (C|D / A|B)</option>
+                    </select>
+                </div>
+                <button type="button" id="patternGenerate" class="primary">Generate pattern</button>
+            </aside>
+            <div class="pattern-canvas-wrap" style="position: relative;">
+                <canvas id="patternCanvas" width="512" height="512" aria-label="Drawing canvas"></canvas>
+                <canvas id="patternGuidesOverlay" width="512" height="512" aria-hidden="true" style="position: absolute; left: 0; top: 0; pointer-events: none;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="patternView" class="pattern-view" aria-hidden="true">
+        <div class="pattern-view-bar">
+            <a href="#" id="patternBackToDesign">← Back to design</a>
+            <a href="../index.html">Back to site</a>
+            <button type="button" id="patternExportPng">Export PNG</button>
+        </div>
+        <div class="pattern-view-canvas-wrap">
+            <canvas id="patternViewCanvas" aria-label="Pattern view"></canvas>
+        </div>
+    </div>
+
+    <script src="../js/pattern-generator.js"></script>
+</body>
+</html>
