@@ -7,21 +7,20 @@
     <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
     <style>
         a.back { margin-bottom: 1rem; display: inline-block; }
-        .word-btn {
-            font: inherit;
-            color: inherit;
-            background: none;
-            border: none;
-            padding: 0;
-            margin: 0;
-            cursor: pointer;
-            text-decoration: underline;
-            text-underline-offset: 0.15em;
+        .word-cell {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
         }
-        .word-btn:hover { color: var(--accent, #0b57d0); }
-        .word-btn:focus {
-            outline: 2px solid var(--accent, #0b57d0);
-            outline-offset: 2px;
+        .voice-actions {
+            display: inline-flex;
+            gap: 0.35rem;
+        }
+        .voice-btn {
+            font-size: 0.85rem;
+            padding: 0.2rem 0.45rem;
         }
         .audio-notice {
             margin-top: 1rem;
@@ -44,13 +43,13 @@
 <body>
     <a class="back" href="../index.html">← Back</a>
     <h1>Vietnamese learning</h1>
-    <p>Native Vietnamese numbers 1–10. Click a word to hear the pronunciation (plays on this page; no new tab).</p>
+    <p>Native Vietnamese numbers 1–10. Use Male/Female buttons to hear pronunciation (plays on this page; no new tab).</p>
 
     <table class="word-table">
         <thead>
             <tr>
                 <th scope="col">Number</th>
-                <th scope="col">Vietnamese (click to hear)</th>
+                <th scope="col">Vietnamese (choose voice)</th>
             </tr>
         </thead>
         <tbody id="vietnameseEntries"></tbody>
@@ -61,10 +60,11 @@
     <audio id="audioPlayer" preload="none"></audio>
 
     <p class="attribution">
-        Recordings from
+        Male recordings from
         <a href="https://www.omniglot.com/language/numbers/vietnamese.htm" rel="noopener noreferrer">Omniglot — Vietnamese numbers</a>
         (information and recordings by Greg Vanderford).
     </p>
+    <p class="attribution">Female recordings by Ruby Ngo.</p>
 
     <script src="../js/vietnamese-learning.js"></script>
 </body>

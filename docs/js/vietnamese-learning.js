@@ -1,34 +1,29 @@
 (function () {
   'use strict';
 
-  /**
-   * Audio source base URL.
-   *
-   * v1: Omniglot hotlink (absolute HTTPS). No MP3s in this repo.
-   * To use committed files instead: put MP3s under e.g. docs/assets/audio/vietnamese/
-   * and set AUDIO_BASE to a path relative to this HTML page, e.g.:
-   *   var AUDIO_BASE = '../assets/audio/vietnamese/';
-   * Then set each entry's `file` to your filename (e.g. 'mot.mp3'). Only commit audio
-   * you recorded or have rights to publish.
-   */
-  var AUDIO_BASE = 'https://www.omniglot.com/soundfiles/vietnamese/numbers/';
+  var MALE_AUDIO_BASE = 'https://www.omniglot.com/soundfiles/vietnamese/numbers/';
+  var FEMALE_AUDIO_BASE = '../assets/audio/vietnamese/female/';
 
-  /** Native Vietnamese numerals 1–10; `file` must match Omniglot naming when using hotlink. */
+  /**
+   * Native Vietnamese numerals 1–10.
+   * Male uses Omniglot filenames; female uses local files: ruby-number-1.mp3 ... ruby-number-10.mp3
+   */
   var ENTRIES = [
-    { digit: 1, word: 'một', file: 'one_vietnamese.mp3' },
-    { digit: 2, word: 'hai', file: 'two_vietnamese.mp3' },
-    { digit: 3, word: 'ba', file: 'three_vietnamese.mp3' },
-    { digit: 4, word: 'bốn', file: 'four_vietnamese.mp3' },
-    { digit: 5, word: 'năm', file: 'five_vietnamese.mp3' },
-    { digit: 6, word: 'sáu', file: 'six_vietnamese.mp3' },
-    { digit: 7, word: 'bảy', file: 'seven_vietnamese.mp3' },
-    { digit: 8, word: 'tám', file: 'eight_vietnamese.mp3' },
-    { digit: 9, word: 'chín', file: 'nine_vietnamese.mp3' },
-    { digit: 10, word: 'mười', file: 'ten_vietnamese.mp3' }
+    { digit: 1, word: 'một', maleFile: 'one_vietnamese.mp3', femaleFile: 'ruby-number-1.mp3' },
+    { digit: 2, word: 'hai', maleFile: 'two_vietnamese.mp3', femaleFile: 'ruby-number-2.mp3' },
+    { digit: 3, word: 'ba', maleFile: 'three_vietnamese.mp3', femaleFile: 'ruby-number-3.mp3' },
+    { digit: 4, word: 'bốn', maleFile: 'four_vietnamese.mp3', femaleFile: 'ruby-number-4.mp3' },
+    { digit: 5, word: 'năm', maleFile: 'five_vietnamese.mp3', femaleFile: 'ruby-number-5.mp3' },
+    { digit: 6, word: 'sáu', maleFile: 'six_vietnamese.mp3', femaleFile: 'ruby-number-6.mp3' },
+    { digit: 7, word: 'bảy', maleFile: 'seven_vietnamese.mp3', femaleFile: 'ruby-number-7.mp3' },
+    { digit: 8, word: 'tám', maleFile: 'eight_vietnamese.mp3', femaleFile: 'ruby-number-8.mp3' },
+    { digit: 9, word: 'chín', maleFile: 'nine_vietnamese.mp3', femaleFile: 'ruby-number-9.mp3' },
+    { digit: 10, word: 'mười', maleFile: 'ten_vietnamese.mp3', femaleFile: 'ruby-number-10.mp3' }
   ];
 
-  function audioUrl(entry) {
-    return AUDIO_BASE + entry.file;
+  function audioUrl(entry, voice) {
+    if (voice === 'female') return FEMALE_AUDIO_BASE + entry.femaleFile;
+    return MALE_AUDIO_BASE + entry.maleFile;
   }
 
   function init() {
@@ -54,8 +49,36 @@
     player.addEventListener('error', function () {
       var err = player.error;
       var detail = err ? ' (code ' + err.code + ')' : '';
-      showNotice('Could not play audio. The remote file may be unavailable or blocked.' + detail, true);
+      showNotice('Could not play audio. Check that the selected voice file exists and is reachable.' + detail, true);
     });
+
+    function playVoice(entry, voice) {
+      clearNotice();
+      var url = audioUrl(entry, voice);
+      if (player.src !== url) {
+        player.pause();
+        player.src = url;
+      }
+      player.currentTime = 0;
+      var p = player.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(function () {
+          showNotice('Playback was blocked or failed. Try again.', true);
+        });
+      }
+    }
+
+    function createVoiceButton(voice, entry) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'voice-btn';
+      btn.textContent = voice === 'female' ? 'Female' : 'Male';
+      btn.setAttribute('aria-label', 'Play ' + voice + ' pronunciation: ' + entry.word);
+      btn.addEventListener('click', function () {
+        playVoice(entry, voice);
+      });
+      return btn;
+    }
 
     ENTRIES.forEach(function (entry) {
       var tr = document.createElement('tr');
@@ -64,29 +87,16 @@
       tdNum.textContent = String(entry.digit);
 
       var tdWord = document.createElement('td');
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'word-btn';
-      btn.textContent = entry.word;
-      btn.setAttribute('aria-label', 'Play pronunciation: ' + entry.word);
+      tdWord.className = 'word-cell';
+      var wordText = document.createElement('strong');
+      wordText.textContent = entry.word;
+      var actions = document.createElement('span');
+      actions.className = 'voice-actions';
+      actions.appendChild(createVoiceButton('male', entry));
+      actions.appendChild(createVoiceButton('female', entry));
 
-      btn.addEventListener('click', function () {
-        clearNotice();
-        var url = audioUrl(entry);
-        if (player.src !== url) {
-          player.pause();
-          player.src = url;
-        }
-        player.currentTime = 0;
-        var p = player.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch(function () {
-            showNotice('Playback was blocked or failed. Try again.', true);
-          });
-        }
-      });
-
-      tdWord.appendChild(btn);
+      tdWord.appendChild(wordText);
+      tdWord.appendChild(actions);
       tr.appendChild(tdNum);
       tr.appendChild(tdWord);
       tbody.appendChild(tr);
