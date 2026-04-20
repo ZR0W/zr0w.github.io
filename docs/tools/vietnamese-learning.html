@@ -22,6 +22,10 @@
             font-size: 0.85rem;
             padding: 0.2rem 0.45rem;
         }
+        .voice-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         .audio-notice {
             margin-top: 1rem;
             padding: 0.5rem 0.75rem;
@@ -43,8 +47,9 @@
 <body>
     <a class="back" href="../index.html">← Back</a>
     <h1>Vietnamese learning</h1>
-    <p>Native Vietnamese numbers 1–10. Use Male/Female buttons to hear pronunciation (plays on this page; no new tab).</p>
+    <p>Use Male/Female buttons to hear pronunciation (plays on this page; no new tab).</p>
 
+    <h2>Numbers</h2>
     <table class="word-table">
         <thead>
             <tr>
@@ -53,6 +58,18 @@
             </tr>
         </thead>
         <tbody id="vietnameseEntries"></tbody>
+    </table>
+
+    <h2>More words</h2>
+    <table class="word-table">
+        <thead>
+            <tr>
+                <th scope="col">Vietnamese</th>
+                <th scope="col">Chinese</th>
+                <th scope="col">Pronunciation (choose voice)</th>
+            </tr>
+        </thead>
+        <tbody id="vocabularyEntries"></tbody>
     </table>
 
     <p id="audioNotice" class="audio-notice" role="status" aria-live="polite" hidden></p>

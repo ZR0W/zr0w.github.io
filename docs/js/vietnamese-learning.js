@@ -21,16 +21,25 @@
     { digit: 10, word: 'mười', maleFile: 'ten_vietnamese.mp3', femaleFile: 'ruby-number-10.mp3' }
   ];
 
+  var VOCABULARY_ENTRIES = [
+    { word: 'Không vấn đề', chinese: '没问题', femaleFile: 'ruby-noproblem.mp3' }
+  ];
+
   function audioUrl(entry, voice) {
-    if (voice === 'female') return FEMALE_AUDIO_BASE + entry.femaleFile;
+    if (voice === 'female') {
+      if (!entry.femaleFile) return '';
+      return FEMALE_AUDIO_BASE + entry.femaleFile;
+    }
+    if (!entry.maleFile) return '';
     return MALE_AUDIO_BASE + entry.maleFile;
   }
 
   function init() {
-    var tbody = document.getElementById('vietnameseEntries');
+    var numbersBody = document.getElementById('vietnameseEntries');
+    var vocabBody = document.getElementById('vocabularyEntries');
     var notice = document.getElementById('audioNotice');
     var player = document.getElementById('audioPlayer');
-    if (!tbody || !player) return;
+    if (!numbersBody || !vocabBody || !player) return;
 
     function clearNotice() {
       if (!notice) return;
@@ -55,6 +64,10 @@
     function playVoice(entry, voice) {
       clearNotice();
       var url = audioUrl(entry, voice);
+      if (!url) {
+        showNotice('No ' + voice + ' recording available for this entry yet.', false);
+        return;
+      }
       if (player.src !== url) {
         player.pause();
         player.src = url;
@@ -74,10 +87,28 @@
       btn.className = 'voice-btn';
       btn.textContent = voice === 'female' ? 'Female' : 'Male';
       btn.setAttribute('aria-label', 'Play ' + voice + ' pronunciation: ' + entry.word);
+      if (!audioUrl(entry, voice)) {
+        btn.disabled = true;
+        btn.title = 'No ' + voice + ' recording available';
+      }
       btn.addEventListener('click', function () {
         playVoice(entry, voice);
       });
       return btn;
+    }
+
+    function createVoiceCell(entry) {
+      var td = document.createElement('td');
+      td.className = 'word-cell';
+      var wordText = document.createElement('strong');
+      wordText.textContent = entry.word;
+      var actions = document.createElement('span');
+      actions.className = 'voice-actions';
+      actions.appendChild(createVoiceButton('male', entry));
+      actions.appendChild(createVoiceButton('female', entry));
+      td.appendChild(wordText);
+      td.appendChild(actions);
+      return td;
     }
 
     ENTRIES.forEach(function (entry) {
@@ -85,21 +116,23 @@
 
       var tdNum = document.createElement('td');
       tdNum.textContent = String(entry.digit);
-
-      var tdWord = document.createElement('td');
-      tdWord.className = 'word-cell';
-      var wordText = document.createElement('strong');
-      wordText.textContent = entry.word;
-      var actions = document.createElement('span');
-      actions.className = 'voice-actions';
-      actions.appendChild(createVoiceButton('male', entry));
-      actions.appendChild(createVoiceButton('female', entry));
-
-      tdWord.appendChild(wordText);
-      tdWord.appendChild(actions);
+      var tdWord = createVoiceCell(entry);
       tr.appendChild(tdNum);
       tr.appendChild(tdWord);
-      tbody.appendChild(tr);
+      numbersBody.appendChild(tr);
+    });
+
+    VOCABULARY_ENTRIES.forEach(function (entry) {
+      var tr = document.createElement('tr');
+      var tdWord = document.createElement('td');
+      tdWord.textContent = entry.word;
+      var tdChinese = document.createElement('td');
+      tdChinese.textContent = entry.chinese;
+      var tdVoice = createVoiceCell(entry);
+      tr.appendChild(tdWord);
+      tr.appendChild(tdChinese);
+      tr.appendChild(tdVoice);
+      vocabBody.appendChild(tr);
     });
   }
 
