@@ -21,8 +21,18 @@
     { digit: 10, word: 'mười', maleFile: 'ten_vietnamese.mp3', femaleFile: 'ruby-number-10.mp3' }
   ];
 
+  /**
+   * More words — word (Vietnamese), english, chinese, audio filenames per slot.
+   * Female MP3s: docs/assets/audio/vietnamese/female/
+   * Omit maleFile (or leave unset) until a male recording exists.
+   */
   var VOCABULARY_ENTRIES = [
-    { word: 'Không vấn đề', chinese: '没问题', femaleFile: 'ruby-noproblem.mp3' }
+    { word: 'Không vấn đề', english: 'no problem', chinese: '没问题', femaleFile: 'ruby-noproblem.mp3' },
+    { slot: 2, word: 'Cảm ơn', english: 'thank you', chinese: '感恩', femaleFile: 'ruby-vocab-2.mp3' },
+    { slot: 3, word: 'xin lỗi', english: 'sorry', chinese: '', femaleFile: 'ruby-vocab-3.mp3' },
+    { slot: 4, word: 'ngủ ngon', english: 'good night', chinese: '晚安', femaleFile: 'ruby-vocab-4.mp3' },
+    { slot: 5, word: '', english: '', chinese: '', femaleFile: 'ruby-vocab-5.mp3' },
+    { slot: 6, word: '', english: '', chinese: '', femaleFile: 'ruby-vocab-6.mp3' }
   ];
 
   function audioUrl(entry, voice) {
@@ -86,7 +96,8 @@
       btn.type = 'button';
       btn.className = 'voice-btn';
       btn.textContent = voice === 'female' ? 'Female' : 'Male';
-      btn.setAttribute('aria-label', 'Play ' + voice + ' pronunciation: ' + entry.word);
+      var labelWord = entry.word || ('vocabulary slot ' + (entry.slot || ''));
+      btn.setAttribute('aria-label', 'Play ' + voice + ' pronunciation: ' + labelWord);
       if (!audioUrl(entry, voice)) {
         btn.disabled = true;
         btn.title = 'No ' + voice + ' recording available';
@@ -101,7 +112,7 @@
       var td = document.createElement('td');
       td.className = 'word-cell';
       var wordText = document.createElement('strong');
-      wordText.textContent = entry.word;
+      wordText.textContent = entry.word || '—';
       var actions = document.createElement('span');
       actions.className = 'voice-actions';
       actions.appendChild(createVoiceButton('male', entry));
@@ -122,16 +133,19 @@
       numbersBody.appendChild(tr);
     });
 
+    function createVocabTextCell(value) {
+      var td = document.createElement('td');
+      td.textContent = value || '—';
+      if (!value) td.className = 'placeholder-text';
+      return td;
+    }
+
     VOCABULARY_ENTRIES.forEach(function (entry) {
       var tr = document.createElement('tr');
-      var tdWord = document.createElement('td');
-      tdWord.textContent = entry.word;
-      var tdChinese = document.createElement('td');
-      tdChinese.textContent = entry.chinese;
-      var tdVoice = createVoiceCell(entry);
-      tr.appendChild(tdWord);
-      tr.appendChild(tdChinese);
-      tr.appendChild(tdVoice);
+      tr.appendChild(createVocabTextCell(entry.word));
+      tr.appendChild(createVocabTextCell(entry.english));
+      tr.appendChild(createVocabTextCell(entry.chinese));
+      tr.appendChild(createVoiceCell(entry));
       vocabBody.appendChild(tr);
     });
   }
