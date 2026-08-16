@@ -6,211 +6,169 @@
     <title>Receipt parser – Webtools</title>
     <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
     <style>
+        /* ─── Base ─────────────────────────────────────────────────────────── */
         a.back { margin-bottom: 1rem; display: inline-block; }
-
-        .panel {
-            margin: 1rem 0;
-            padding: 1rem;
-            background: #f5f5f5;
-            border-radius: 6px;
-        }
+        .panel { margin: 1rem 0; padding: 1rem; background: #f5f5f5; border-radius: 6px; }
         .panel h2 { margin-top: 0; font-size: 1.1rem; }
 
-        /* Load section */
+        /* ─── Load panel ────────────────────────────────────────────────────── */
         .load-method { margin-bottom: 1rem; }
-        .load-method h3 {
-            font-size: 0.95rem;
-            margin: 0 0 0.4rem;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        .badge {
-            font-size: 0.72rem;
-            font-weight: bold;
-            padding: 0.1rem 0.4rem;
-            border-radius: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-        .badge.best  { background: #c8f0c8; color: #064; border: 1px solid #6c6; }
-        .badge.alt   { background: #e8e8e8; color: #444; border: 1px solid #bbb; }
-
-        .bookmarklet-row {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
+        .load-method h3 { font-size: .95rem; margin: 0 0 .4rem; display: flex; align-items: center; gap: .4rem; }
+        .badge { font-size: .72rem; font-weight: bold; padding: .1rem .4rem; border-radius: 4px; text-transform: uppercase; letter-spacing: .03em; }
+        .badge.best { background: #c8f0c8; color: #064; border: 1px solid #6c6; }
+        .badge.alt  { background: #e8e8e8; color: #444; border: 1px solid #bbb; }
+        .bookmarklet-row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
         a.bookmarklet-btn {
-            display: inline-block;
-            padding: 0.45rem 0.9rem;
-            background: #024;
-            color: #fff !important;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            text-decoration: none;
-            border: 2px dashed #6af;
-            cursor: grab;
-            white-space: nowrap;
+            display: inline-block; padding: .45rem .9rem; background: #024; color: #fff !important;
+            border-radius: 6px; font-size: .9rem; text-decoration: none;
+            border: 2px dashed #6af; cursor: grab; white-space: nowrap;
         }
         a.bookmarklet-btn:hover { background: #036; }
-        .bookmarklet-hint { font-size: 0.85rem; color: #555; }
-
-        .url-row {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
+        .bookmarklet-hint { font-size: .85rem; color: #555; }
+        .url-row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
         .url-row input[type="url"] { flex: 1 1 16rem; }
-
-        details { margin-top: 0.25rem; font-size: 0.95rem; }
-        details summary { cursor: pointer; color: #036; font-size: 0.9rem; }
-        details p  { font-size: 0.88rem; color: #555; margin: 0.4rem 0 0.25rem; }
-        details textarea {
-            display: block;
-            width: 100%;
-            margin-top: 0.4rem;
-            font-family: monospace;
-            font-size: 0.82rem;
-            box-sizing: border-box;
-        }
-        .btn-row { margin-top: 0.5rem; }
-
-        .divider {
-            border: none;
-            border-top: 1px solid #ddd;
-            margin: 0.75rem 0;
-        }
-
-        .notice {
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            margin: 0.75rem 0 0;
-            min-height: 1.5rem;
-        }
+        details { margin-top: .25rem; font-size: .95rem; }
+        details summary { cursor: pointer; color: #036; font-size: .9rem; }
+        details p { font-size: .88rem; color: #555; margin: .4rem 0 .25rem; }
+        details textarea { display: block; width: 100%; margin-top: .4rem; font-family: monospace; font-size: .82rem; box-sizing: border-box; }
+        .btn-row { margin-top: .5rem; }
+        .divider { border: none; border-top: 1px solid #ddd; margin: .75rem 0; }
+        .notice { padding: .5rem .75rem; border-radius: 6px; margin: .75rem 0 0; min-height: 1.5rem; }
         .notice.error { background: #fdd; border: 1px solid #f66; color: #800; }
         .notice.warn  { background: #fff8e6; border: 1px solid #da0; color: #630; }
         .notice.info  { background: #e8f4fc; border: 1px solid #6af; color: #036; }
         .notice:empty { display: none; }
 
-        /* Item rows */
-        .item-row {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.45rem 0;
-            border-bottom: 1px solid #ddd;
+        /* ─── Receipt bar ───────────────────────────────────────────────────── */
+        .receipt-bar {
+            display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: baseline;
+            margin: 1rem 0 .75rem; padding: .55rem .85rem;
+            background: #f0f4f8; border-radius: 6px; border-left: 4px solid #6af;
         }
-        .item-row:last-child { border-bottom: none; }
-        .item-row.removed   { display: none; }
+        #receiptMeta strong { font-size: 1rem; }
+        .summary-inline { font-size: .88rem; color: #444; }
 
-        .item-row input[type="checkbox"] {
-            width: 1.1rem;
-            height: 1.1rem;
-            flex-shrink: 0;
-            cursor: pointer;
-            accent-color: #024;
-        }
-        .item-row label {
-            flex: 1;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 0.5rem;
-            min-width: 0;
-        }
-        .item-name {
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .item-price {
-            font-variant-numeric: tabular-nums;
-            font-weight: bold;
-            flex-shrink: 0;
-        }
-        .item-row .remove {
-            padding: 0.18rem 0.45rem;
-            border: 1px solid #c88;
-            background: #fff;
-            color: #800;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            flex-shrink: 0;
-            line-height: 1.3;
-        }
-        .item-row .remove:hover { background: #fdd; }
+        /* ─── Board layout ──────────────────────────────────────────────────── */
+        #board { display: flex; flex-direction: column; gap: 1rem; }
+        .board-section { background: #f5f5f5; border-radius: 8px; padding: 1rem; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
+        .area-label { font-weight: bold; font-size: 1rem; }
+        .section-hint { font-size: .8rem; color: #888; font-style: italic; }
 
-        .toolbar {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            margin-top: 0.75rem;
-        }
-        .toolbar button {
-            padding: 0.35rem 0.75rem;
-            border: 1px solid #ccc;
-            background: #fff;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        .toolbar button:hover { background: #eee; }
+        /* ─── Pool ──────────────────────────────────────────────────────────── */
+        .pool-row { display: flex; gap: .75rem; align-items: flex-start; }
+        .pool-cards { display: flex; flex-wrap: wrap; gap: .5rem; flex: 1; }
 
-        /* Summary */
-        .summary-dl {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 0.35rem 1rem;
-            align-items: baseline;
-            max-width: 18rem;
+        .pool-card {
+            background: #fff; border: 1.5px solid #d8dde4; border-radius: 8px;
+            padding: .5rem .65rem; width: 138px;
+            cursor: grab; user-select: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,.08);
+            transition: box-shadow .15s, transform .12s, border-color .15s;
         }
-        .summary-dl dt { font-weight: bold; margin: 0; }
-        .summary-dl dd { margin: 0; font-variant-numeric: tabular-nums; }
+        .pool-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.14); transform: translateY(-2px); }
+        .pool-card.dragging { opacity: .45; transform: none; cursor: grabbing; }
+        .pool-card.touch-selected { border-color: #2a7fd4; box-shadow: 0 0 0 3px rgba(42,127,212,.25); }
+        .card-name {
+            display: block; font-size: .85rem; font-weight: 500;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: .2rem;
+        }
+        .card-price { display: block; font-size: 1.05rem; font-weight: bold; font-variant-numeric: tabular-nums; }
+        .card-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: .4rem; min-height: 10px; }
+        .badge-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 
-        /* Portion */
-        .portion-box {
-            margin: 1rem 0;
-            padding: 1rem 1.25rem;
-            background: #e8f4fc;
-            border: 1px solid #6af;
-            border-radius: 8px;
+        /* ─── Trash zone ────────────────────────────────────────────────────── */
+        .trash-zone {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 2px; min-width: 62px; min-height: 72px;
+            border: 2px dashed #ccc; border-radius: 8px;
+            color: #bbb; font-size: .72rem;
+            transition: background .15s, border-color .15s, color .15s;
+            cursor: default; flex-shrink: 0;
         }
-        .portion-label { font-weight: bold; margin-bottom: 0.3rem; }
-        .portion-amount {
-            font-size: 1.6rem;
-            font-weight: bold;
-            font-variant-numeric: tabular-nums;
-            color: #024;
-        }
-        .portion-detail { font-size: 0.88rem; color: #036; margin-top: 0.3rem; }
+        .trash-zone.drag-over { background: #fff0f0; border-color: #e05555; color: #c00; }
+        .trash-icon { font-size: 1.3rem; line-height: 1; }
+        .trash-label { font-size: .7rem; }
 
-        .receipt-meta { font-size: 0.9rem; color: #555; margin-bottom: 0.5rem; }
-        .receipt-meta strong { font-size: 1rem; color: #111; display: block; margin-bottom: 0.1rem; }
+        /* ─── Lanes ─────────────────────────────────────────────────────────── */
+        .lanes-row { display: flex; flex-direction: row; gap: .85rem; overflow-x: auto; padding-bottom: .5rem; }
+
+        .lane {
+            flex: 0 0 200px; background: #fff;
+            border: 2px solid #dde1e7; border-left: 4px solid var(--lane-color, #aaa);
+            border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .lane.drag-over { border-color: var(--lane-color, #4a8bd4); box-shadow: 0 0 12px rgba(0,0,0,.12); }
+
+        .lane-header {
+            display: flex; align-items: center; gap: .4rem;
+            padding: .5rem .65rem .45rem; border-bottom: 1px solid #eee;
+        }
+        .lane-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--lane-color, #aaa); }
+        .lane-name {
+            flex: 1; font-weight: bold; font-size: .9rem; outline: none;
+            min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .lane-name:focus { background: rgba(0,0,0,.06); border-radius: 3px; padding: 0 2px; text-overflow: clip; overflow: visible; }
+        .lane-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0 0 2px; flex-shrink: 0; }
+        .lane-del:hover { color: #d00; }
+
+        .lane-body {
+            flex: 1; padding: .5rem; display: flex; flex-direction: column;
+            gap: .4rem; min-height: 96px; transition: background .15s;
+        }
+        .lane-body.drag-over { background: rgba(0,0,0,.03); }
+        .lane-empty {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            color: #ccc; font-size: .82rem; pointer-events: none; text-align: center; padding: .5rem;
+        }
+
+        /* ─── Lane cards ────────────────────────────────────────────────────── */
+        .lane-card {
+            background: #f6f7f9; border: 1.5px solid #e3e6ea; border-radius: 6px;
+            padding: .35rem 1.5rem .35rem .5rem; position: relative;
+            cursor: grab; user-select: none; transition: border-color .15s;
+        }
+        .lane-card:hover { border-color: #bcc3cc; }
+        .lane-card.dragging { opacity: .45; cursor: grabbing; }
+        .lane-card.flash { animation: card-flash .55s ease; }
+        @keyframes card-flash {
+            0%,100% { border-color: #e3e6ea; background: #f6f7f9; }
+            40%      { border-color: #e09a30; background: #fffbe8; box-shadow: 0 0 0 2px rgba(224,154,48,.3); }
+        }
+        .card-main { display: flex; justify-content: space-between; align-items: baseline; gap: .4rem; }
+        .lane-card .card-name { font-size: .82rem; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 0; }
+        .lane-card .card-price { font-size: .88rem; font-weight: bold; flex-shrink: 0; display: block; font-variant-numeric: tabular-nums; }
+        .card-share { font-size: .75rem; color: #888; margin-top: .1rem; }
+        .card-rm { position: absolute; top: 4px; right: 5px; background: none; border: none; color: #ccc; cursor: pointer; font-size: .95rem; line-height: 1; padding: 0; }
+        .card-rm:hover { color: #c00; }
+
+        /* ─── Lane footer ───────────────────────────────────────────────────── */
+        .lane-footer { padding: .5rem .65rem; border-top: 1px solid #eee; font-size: .82rem; }
+        .lane-frow { display: flex; justify-content: space-between; color: #666; padding: .07rem 0; }
+        .lane-frow.total { border-top: 1px solid #ddd; margin-top: .3rem; padding-top: .3rem; font-weight: bold; font-size: .95rem; color: #111; }
+        .lane-fval { font-variant-numeric: tabular-nums; }
 
         [hidden] { display: none !important; }
 
-        @media (max-width: 560px) {
-            .item-name { white-space: normal; }
-            .url-row input[type="url"],
-            .url-row button { width: 100%; }
+        /* ─── Mobile ────────────────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .lanes-row { flex-direction: column; overflow-x: visible; }
+            .lane { flex: 0 0 auto; width: 100%; }
+            .pool-card { width: calc(50% - .25rem); }
+            .url-row input[type="url"], .url-row button { width: 100%; }
         }
     </style>
 </head>
 <body>
     <a class="back" href="../index.html">← Back</a>
     <h1>Receipt parser</h1>
-    <p>Load a receipt, pick the items you ordered, and see your share of the bill.</p>
+    <p>Load a receipt, assign items to each person, and see everyone's share.</p>
 
+    <!-- ─ Load panel ─────────────────────────────────────────────────────── -->
     <div class="panel">
         <h2>Load receipt</h2>
-
-        <!-- Method 1: Bookmarklet -->
         <div class="load-method">
             <h3>Bookmarklet <span class="badge best">Best</span></h3>
             <div class="bookmarklet-row">
@@ -218,10 +176,7 @@
                 <span class="bookmarklet-hint">Drag to your bookmarks bar. Then open any Toast receipt and click it.</span>
             </div>
         </div>
-
         <hr class="divider">
-
-        <!-- Method 2: URL fetch -->
         <div class="load-method">
             <h3>Fetch from URL <span class="badge alt">Auto</span></h3>
             <div class="url-row">
@@ -229,53 +184,50 @@
                 <button type="button" id="fetchBtn">Fetch receipt</button>
             </div>
         </div>
-
         <hr class="divider">
-
-        <!-- Method 3: Text paste -->
         <div class="load-method">
             <details id="textDetails">
                 <summary>Paste receipt text <span class="badge alt">Fallback</span></summary>
                 <p>Open the receipt in your browser, press Ctrl+A then Ctrl+C, and paste below.</p>
                 <textarea id="receiptText" rows="9" placeholder="Paste receipt text here…"></textarea>
-                <div class="btn-row">
-                    <button type="button" id="parseTextBtn">Parse text</button>
-                </div>
+                <div class="btn-row"><button type="button" id="parseTextBtn">Parse text</button></div>
             </details>
         </div>
-
         <div id="inputNotice" class="notice"></div>
     </div>
 
+    <!-- ─ Results board ──────────────────────────────────────────────────── -->
     <div id="resultsSection" hidden>
-        <div class="panel">
-            <div class="receipt-meta" id="receiptMeta"></div>
-            <h2>Items</h2>
-            <p style="font-size:0.9rem;color:#555;margin:0 0 0.5rem;">Check the items you ordered. Remove items that belong to others.</p>
-            <div id="itemList"></div>
-            <div class="toolbar">
-                <button type="button" id="selectAllBtn">Check all</button>
-                <button type="button" id="deselectAllBtn">Uncheck all</button>
+        <div class="receipt-bar">
+            <span id="receiptMeta"></span>
+            <span id="summaryInline" class="summary-inline"></span>
+        </div>
+
+        <div id="board">
+            <!-- Pool -->
+            <div class="board-section">
+                <div class="section-header">
+                    <span class="area-label">Items</span>
+                    <span class="section-hint">Drag to a column · Drag to 🗑 to remove from receipt</span>
+                </div>
+                <div class="pool-row">
+                    <div id="poolCards" class="pool-cards"></div>
+                    <div id="trashZone" class="trash-zone" title="Drop to remove item from receipt">
+                        <span class="trash-icon">🗑</span>
+                        <span class="trash-label">Remove</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lanes -->
+            <div class="board-section">
+                <div class="section-header">
+                    <span class="area-label">Participants</span>
+                    <button id="addPersonBtn" type="button">+ Add person</button>
+                </div>
+                <div id="lanes" class="lanes-row"></div>
             </div>
         </div>
-
-        <div class="panel">
-            <h2>Check summary</h2>
-            <dl class="summary-dl">
-                <dt>Subtotal</dt> <dd id="dispSubtotal">—</dd>
-                <dt>Tax</dt>     <dd id="dispTax">—</dd>
-                <dt>Tip</dt>     <dd id="dispTip">—</dd>
-                <dt>Total</dt>   <dd id="dispTotal">—</dd>
-            </dl>
-        </div>
-
-        <div class="portion-box">
-            <div class="portion-label">Your portion</div>
-            <div class="portion-amount" id="portionAmount">—</div>
-            <div class="portion-detail" id="portionDetail"></div>
-        </div>
-
-        <div id="resultsNotice" class="notice"></div>
     </div>
 
     <script src="../js/receipt-parser.js"></script>

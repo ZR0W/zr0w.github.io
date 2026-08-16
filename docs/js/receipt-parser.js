@@ -3,19 +3,25 @@
 
   var TOOL_URL = 'https://zr0w.github.io/tools/receipt-parser.html';
 
-  // State
+  // ─── State ────────────────────────────────────────────────────────────────
   var receiptData = null;
   var items = [];
   var itemIdCounter = 0;
+  var participants = [];
+  var participantIdCounter = 0;
+  var touchSelectedItem = null; // { itemId, source: 'pool'|'lane', participantId? }
 
-  // DOM refs
+  var PERSON_COLORS = [
+    '#4a8bd4', '#d95f5f', '#4fa86a', '#d98930',
+    '#8b5ac8', '#3abcbc', '#d45f8b', '#7a9a30'
+  ];
+
+  // ─── DOM refs ─────────────────────────────────────────────────────────────
   var receiptUrlEl, fetchBtnEl, receiptTextEl, parseTextBtnEl;
-  var inputNoticeEl, resultsSectionEl, receiptMetaEl, itemListEl;
-  var selectAllBtnEl, deselectAllBtnEl;
-  var dispSubtotalEl, dispTaxEl, dispTipEl, dispTotalEl;
-  var portionAmountEl, portionDetailEl, resultsNoticeEl;
+  var inputNoticeEl, resultsSectionEl, receiptMetaEl, summaryInlineEl;
+  var poolCardsEl, trashZoneEl, lanesEl, addPersonBtnEl;
 
-  // ─── Utilities ───────────────────────────────────────────────────────────
+  // ─── Utilities ────────────────────────────────────────────────────────────
 
   function formatMoney(n) { return '$' + n.toFixed(2); }
 
@@ -57,11 +63,10 @@
     var parsedItems = [];
     for (var i = 0; i < sels.length; i++) {
       var s = sels[i];
-      if (s.parentItemId || s.parentId) continue; // skip modifiers
+      if (s.parentItemId || s.parentId) continue;
       var name = s.displayName || s.name || s.itemName || ('Item ' + (parsedItems.length + 1));
       var qty = parseInt(s.quantity || s.qty || 1, 10) || 1;
       var price = parseMoney(s.price || s.unitPrice || s.preDiscountPrice || s.totalPrice || 0);
-      // Multiply if price is per-unit and totalPrice not given
       if (qty > 1 && s.totalPrice == null && (s.price != null || s.unitPrice != null)) {
         price = price * qty;
       }
@@ -102,7 +107,6 @@
     var src = payload.s || payload.source || '';
 
     if (src === 'nd' || src === 'nextdata') {
-      // Structured data from __NEXT_DATA__ via bookmarklet
       var rawItems = payload.i || payload.items || [];
       var parsedItems = [];
       for (var i = 0; i < rawItems.length; i++) {
@@ -137,12 +141,11 @@
     var subtotal = 0, tax = 0, tip = 0, total = 0;
     var restaurant = '';
 
-    // Patterns
-    var tabPriceRe      = /^(.+?)\t\$?(\d+\.\d{2})\s*$/;
-    var spacePriceRe    = /^(.*\S)\s{2,}\$?(\d+\.\d{2})\s*$/;
-    var priceOnlyRe     = /^\$?(\d+\.\d{2})\s*$/;
-    var qtyPrefixRe     = /^(\d+)\s+(.+)/;
-    var skipRe          = /^(server|table|guests?|ordered|opened|closed|check\s*#|order\s*#|card|auth|approval|receipt|thank|phone|www\.|http|input\s+type|visa|mastercard|amex|discover|powered|©|never\s+miss|sign\s+up|download|application|device|authorization|transaction|time\s*$)/i;
+    var tabPriceRe   = /^(.+?)\t\$?(\d+\.\d{2})\s*$/;
+    var spacePriceRe = /^(.*\S)\s{2,}\$?(\d+\.\d{2})\s*$/;
+    var priceOnlyRe  = /^\$?(\d+\.\d{2})\s*$/;
+    var qtyPrefixRe  = /^(\d+)\s+(.+)/;
+    var skipRe       = /^(server|table|guests?|ordered|opened|closed|check\s*#|order\s*#|card|auth|approval|receipt|thank|phone|www\.|http|input\s+type|visa|mastercard|amex|discover|powered|©|never\s+miss|sign\s+up|download|application|device|authorization|transaction|time\s*$)/i;
 
     var firstReal = true;
     var pendingName = null;
@@ -153,7 +156,6 @@
       if (/\btax\b/.test(lc))                          { if (!tax)      tax      = price; return; }
       if (/tip|gratuity/.test(lc))                     { if (!tip)      tip      = price; return; }
       if (/^total/.test(lc))                            { if (price > total) total = price; return; }
-      // Item line
       if (skipRe.test(name)) return;
       var m = name.match(qtyPrefixRe);
       var qty      = m ? parseInt(m[1], 10) : 1;
@@ -165,7 +167,6 @@
       var line = lines[i];
       if (!line) { pendingName = null; continue; }
 
-      // First non-skip, non-price line = restaurant name
       if (firstReal && !skipRe.test(line) && !priceOnlyRe.test(line)) {
         restaurant = line;
         firstReal = false;
@@ -173,7 +174,6 @@
       }
       firstReal = false;
 
-      // Price-only line: pair with pending name
       var pm = line.match(priceOnlyRe);
       if (pm && pendingName) {
         classify(pendingName, parseMoney(pm[1]));
@@ -181,7 +181,6 @@
         continue;
       }
 
-      // Tab-separated: "Name\t$X.XX"
       var tm = line.match(tabPriceRe);
       if (tm) {
         classify(tm[1], parseMoney(tm[2]));
@@ -189,7 +188,6 @@
         continue;
       }
 
-      // Space-separated: "Name   $X.XX"
       var sm = line.match(spacePriceRe);
       if (sm) {
         classify(sm[1], parseMoney(sm[2]));
@@ -197,7 +195,6 @@
         continue;
       }
 
-      // No price on this line — might be a name for next line's price
       if (!skipRe.test(line) && !pm && line.length < 80) {
         pendingName = line;
       } else {
@@ -261,7 +258,6 @@
           renderReceipt(parsed);
           return;
         }
-        // Fallback: strip tags and parse as text
         var bodyText = html.replace(/<script[\s\S]*?<\/script>/gi, ' ')
                           .replace(/<style[\s\S]*?<\/style>/gi, ' ')
                           .replace(/<[^>]+>/g, ' ')
@@ -280,7 +276,512 @@
       .catch(function () { tryProxy(url, proxies, idx + 1); });
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ─── Participants ─────────────────────────────────────────────────────────
+
+  function addParticipant(name) {
+    var colorIdx = participantIdCounter % PERSON_COLORS.length;
+    var p = { id: ++participantIdCounter, name: name, colorIdx: colorIdx };
+    participants.push(p);
+    return p;
+  }
+
+  function removeParticipant(id) {
+    participants = participants.filter(function (p) { return p.id !== id; });
+    for (var i = 0; i < items.length; i++) {
+      items[i].assignedTo = items[i].assignedTo.filter(function (pid) { return pid !== id; });
+    }
+    renderBoard();
+  }
+
+  // ─── Item assignment ──────────────────────────────────────────────────────
+
+  function assignItem(itemId, participantId) {
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === itemId) {
+        if (items[i].assignedTo.indexOf(participantId) !== -1) return false; // duplicate
+        items[i].assignedTo.push(participantId);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function unassignItem(itemId, participantId) {
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === itemId) {
+        items[i].assignedTo = items[i].assignedTo.filter(function (pid) { return pid !== participantId; });
+        return;
+      }
+    }
+  }
+
+  function removeItem(itemId) {
+    items = items.filter(function (it) { return it.id !== itemId; });
+  }
+
+  function getItem(itemId) {
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === itemId) return items[i];
+    }
+    return null;
+  }
+
+  function getParticipant(id) {
+    for (var i = 0; i < participants.length; i++) {
+      if (participants[i].id === id) return participants[i];
+    }
+    return null;
+  }
+
+  // ─── Calculations ─────────────────────────────────────────────────────────
+
+  function calcPersonEffectiveCost(participantId) {
+    var food = 0;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.assignedTo.indexOf(participantId) !== -1) {
+        food += it.price / it.assignedTo.length;
+      }
+    }
+    return food;
+  }
+
+  function calcPersonTotals(participantId) {
+    if (!receiptData || receiptData.subtotal <= 0 || receiptData.total <= 0) {
+      return { food: 0, tax: 0, tip: 0, total: 0 };
+    }
+    var food = calcPersonEffectiveCost(participantId);
+    var proportion = food / receiptData.subtotal;
+    var tax  = Math.round(proportion * receiptData.tax   * 100) / 100;
+    var tip  = Math.round(proportion * receiptData.tip   * 100) / 100;
+    var tot  = Math.round(proportion * receiptData.total * 100) / 100;
+    return { food: food, tax: tax, tip: tip, total: tot };
+  }
+
+  // ─── Board rendering ──────────────────────────────────────────────────────
+
+  function renderBoard() {
+    renderPool();
+    renderLanes();
+    updateSummaryInline();
+  }
+
+  function updateSummaryInline() {
+    if (!receiptData) return;
+    var parts = [];
+    if (receiptData.subtotal > 0) parts.push('Subtotal ' + formatMoney(receiptData.subtotal));
+    if (receiptData.tax      > 0) parts.push('Tax '      + formatMoney(receiptData.tax));
+    if (receiptData.tip      > 0) parts.push('Tip '      + formatMoney(receiptData.tip));
+    if (receiptData.total    > 0) parts.push('Total '    + formatMoney(receiptData.total));
+    summaryInlineEl.textContent = parts.join(' · ');
+  }
+
+  // ─── Pool ─────────────────────────────────────────────────────────────────
+
+  function renderPool() {
+    poolCardsEl.innerHTML = '';
+    for (var i = 0; i < items.length; i++) {
+      poolCardsEl.appendChild(makePoolCard(items[i]));
+    }
+  }
+
+  function makePoolCard(item) {
+    var card = document.createElement('div');
+    card.className = 'pool-card';
+    card.draggable = true;
+    card.dataset.itemId = String(item.id);
+
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'card-name';
+    nameSpan.textContent = item.qty > 1 ? item.qty + '× ' + item.name : item.name;
+    nameSpan.title = nameSpan.textContent;
+
+    var priceSpan = document.createElement('span');
+    priceSpan.className = 'card-price';
+    priceSpan.textContent = formatMoney(item.price);
+
+    var badges = document.createElement('div');
+    badges.className = 'card-badges';
+    for (var j = 0; j < item.assignedTo.length; j++) {
+      var p = getParticipant(item.assignedTo[j]);
+      if (p) {
+        var dot = document.createElement('span');
+        dot.className = 'badge-dot';
+        dot.style.background = PERSON_COLORS[p.colorIdx];
+        dot.title = p.name;
+        badges.appendChild(dot);
+      }
+    }
+
+    card.appendChild(nameSpan);
+    card.appendChild(priceSpan);
+    card.appendChild(badges);
+
+    // Drag (desktop)
+    card.addEventListener('dragstart', function (e) {
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'pool:' + item.id);
+    });
+    card.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+    });
+
+    // Touch (mobile)
+    card.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (touchSelectedItem && touchSelectedItem.itemId === item.id && touchSelectedItem.source === 'pool') {
+        // Deselect
+        touchSelectedItem = null;
+        card.classList.remove('touch-selected');
+      } else {
+        clearTouchSelection();
+        touchSelectedItem = { itemId: item.id, source: 'pool' };
+        card.classList.add('touch-selected');
+      }
+    });
+
+    return card;
+  }
+
+  // ─── Lanes ────────────────────────────────────────────────────────────────
+
+  function renderLanes() {
+    lanesEl.innerHTML = '';
+    for (var i = 0; i < participants.length; i++) {
+      lanesEl.appendChild(makeLane(participants[i]));
+    }
+  }
+
+  function makeLane(participant) {
+    var color = PERSON_COLORS[participant.colorIdx];
+
+    var lane = document.createElement('div');
+    lane.className = 'lane';
+    lane.dataset.participantId = String(participant.id);
+    lane.style.setProperty('--lane-color', color);
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'lane-header';
+
+    var dot = document.createElement('span');
+    dot.className = 'lane-color-dot';
+
+    var nameEl = document.createElement('span');
+    nameEl.className = 'lane-name';
+    nameEl.contentEditable = 'true';
+    nameEl.textContent = participant.name;
+    nameEl.spellcheck = false;
+    nameEl.addEventListener('blur', (function (p) {
+      return function () {
+        var newName = nameEl.textContent.trim();
+        if (newName) {
+          p.name = newName;
+          renderPool(); // refresh badge tooltips
+        } else {
+          nameEl.textContent = p.name;
+        }
+      };
+    }(participant)));
+    nameEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); }
+    });
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'lane-del';
+    delBtn.textContent = '×';
+    delBtn.title = 'Remove ' + participant.name;
+    delBtn.addEventListener('click', function () { removeParticipant(participant.id); });
+
+    header.appendChild(dot);
+    header.appendChild(nameEl);
+    header.appendChild(delBtn);
+
+    // Body (drop zone)
+    var body = document.createElement('div');
+    body.className = 'lane-body';
+
+    var assignedItems = items.filter(function (it) {
+      return it.assignedTo.indexOf(participant.id) !== -1;
+    });
+
+    if (assignedItems.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'lane-empty';
+      empty.textContent = 'Drop items here';
+      body.appendChild(empty);
+    } else {
+      for (var i = 0; i < assignedItems.length; i++) {
+        body.appendChild(makeLaneCard(assignedItems[i], participant.id));
+      }
+    }
+
+    // Drop handlers on body
+    body.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      body.classList.add('drag-over');
+      lane.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', function (e) {
+      if (!body.contains(e.relatedTarget)) {
+        body.classList.remove('drag-over');
+        lane.classList.remove('drag-over');
+      }
+    });
+    body.addEventListener('drop', (function (pid) {
+      return function (e) {
+        e.preventDefault();
+        body.classList.remove('drag-over');
+        lane.classList.remove('drag-over');
+        var data = e.dataTransfer.getData('text/plain');
+        handleDrop(data, pid);
+      };
+    }(participant.id)));
+
+    // Touch: tap lane body to assign selected pool card
+    body.addEventListener('click', (function (pid) {
+      return function (e) {
+        if (!touchSelectedItem) return;
+        if (touchSelectedItem.source === 'pool') {
+          var ok = assignItem(touchSelectedItem.itemId, pid);
+          if (!ok) flashLaneCard(touchSelectedItem.itemId, pid);
+          clearTouchSelection();
+          renderBoard();
+        }
+      };
+    }(participant.id)));
+
+    // Footer
+    var footer = makeLaneFooter(participant.id);
+
+    lane.appendChild(header);
+    lane.appendChild(body);
+    lane.appendChild(footer);
+    return lane;
+  }
+
+  function makeLaneCard(item, participantId) {
+    var shareCount = item.assignedTo.length;
+    var shareAmt = item.price / shareCount;
+
+    var card = document.createElement('div');
+    card.className = 'lane-card';
+    card.draggable = true;
+    card.dataset.itemId = String(item.id);
+    card.dataset.participantId = String(participantId);
+
+    var main = document.createElement('div');
+    main.className = 'card-main';
+
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'card-name';
+    nameSpan.textContent = item.qty > 1 ? item.qty + '× ' + item.name : item.name;
+    nameSpan.title = nameSpan.textContent;
+
+    var priceSpan = document.createElement('span');
+    priceSpan.className = 'card-price';
+    priceSpan.textContent = formatMoney(item.price);
+
+    main.appendChild(nameSpan);
+    main.appendChild(priceSpan);
+
+    var rmBtn = document.createElement('button');
+    rmBtn.type = 'button';
+    rmBtn.className = 'card-rm';
+    rmBtn.textContent = '×';
+    rmBtn.title = 'Remove from this person';
+    rmBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      unassignItem(item.id, participantId);
+      renderBoard();
+    });
+
+    card.appendChild(main);
+
+    if (shareCount > 1) {
+      var shareDiv = document.createElement('div');
+      shareDiv.className = 'card-share';
+      shareDiv.textContent = '÷' + shareCount + ' · ' + formatMoney(shareAmt);
+      card.appendChild(shareDiv);
+    }
+
+    card.appendChild(rmBtn);
+
+    // Drag (desktop) — encode source lane too
+    card.addEventListener('dragstart', function (e) {
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'lane:' + item.id + ':' + participantId);
+    });
+    card.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+    });
+
+    return card;
+  }
+
+  function makeLaneFooter(participantId) {
+    var totals = calcPersonTotals(participantId);
+
+    var footer = document.createElement('div');
+    footer.className = 'lane-footer';
+
+    function frow(label, val) {
+      var row = document.createElement('div');
+      row.className = 'lane-frow';
+      var lbl = document.createElement('span');
+      lbl.textContent = label;
+      var amt = document.createElement('span');
+      amt.className = 'lane-fval';
+      amt.textContent = formatMoney(val);
+      row.appendChild(lbl);
+      row.appendChild(amt);
+      return row;
+    }
+
+    footer.appendChild(frow('Food', totals.food));
+    footer.appendChild(frow('Tax', totals.tax));
+    footer.appendChild(frow('Tip', totals.tip));
+
+    var totalRow = frow('Total', totals.total);
+    totalRow.classList.add('total');
+    footer.appendChild(totalRow);
+
+    return footer;
+  }
+
+  // ─── Trash zone ───────────────────────────────────────────────────────────
+
+  function setupTrashZone() {
+    trashZoneEl.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      trashZoneEl.classList.add('drag-over');
+    });
+    trashZoneEl.addEventListener('dragleave', function (e) {
+      if (!trashZoneEl.contains(e.relatedTarget)) {
+        trashZoneEl.classList.remove('drag-over');
+      }
+    });
+    trashZoneEl.addEventListener('drop', function (e) {
+      e.preventDefault();
+      trashZoneEl.classList.remove('drag-over');
+      var data = e.dataTransfer.getData('text/plain');
+      if (!data) return;
+      var parts = data.split(':');
+      if (parts[0] === 'pool') {
+        removeItem(parseInt(parts[1], 10));
+      } else if (parts[0] === 'lane') {
+        unassignItem(parseInt(parts[1], 10), parseInt(parts[2], 10));
+      }
+      renderBoard();
+    });
+  }
+
+  // ─── Drop routing ─────────────────────────────────────────────────────────
+
+  function handleDrop(data, targetParticipantId) {
+    if (!data) return;
+    var parts = data.split(':');
+    var source = parts[0];
+    var itemId = parseInt(parts[1], 10);
+
+    if (source === 'pool') {
+      var ok = assignItem(itemId, targetParticipantId);
+      renderBoard();
+      if (!ok) flashLaneCard(itemId, targetParticipantId);
+    } else if (source === 'lane') {
+      var srcParticipantId = parseInt(parts[2], 10);
+      if (srcParticipantId === targetParticipantId) {
+        // Dropped onto same lane
+        flashLaneCard(itemId, targetParticipantId);
+        return;
+      }
+      unassignItem(itemId, srcParticipantId);
+      assignItem(itemId, targetParticipantId);
+      renderBoard();
+    }
+  }
+
+  // ─── Flash animation ──────────────────────────────────────────────────────
+
+  function flashLaneCard(itemId, participantId) {
+    var laneEl = lanesEl.querySelector('[data-participant-id="' + participantId + '"]');
+    if (!laneEl) return;
+    var cardEl = laneEl.querySelector('[data-item-id="' + itemId + '"]');
+    if (!cardEl) return;
+    cardEl.classList.remove('flash');
+    void cardEl.offsetWidth; // reflow
+    cardEl.classList.add('flash');
+    cardEl.addEventListener('animationend', function () {
+      cardEl.classList.remove('flash');
+    }, { once: true });
+  }
+
+  // ─── Touch selection helpers ──────────────────────────────────────────────
+
+  function clearTouchSelection() {
+    touchSelectedItem = null;
+    var selected = poolCardsEl.querySelectorAll('.touch-selected');
+    for (var i = 0; i < selected.length; i++) {
+      selected[i].classList.remove('touch-selected');
+    }
+  }
+
+  // ─── Add person inline ────────────────────────────────────────────────────
+
+  function promptAddPerson() {
+    // Show an inline input instead of window.prompt
+    var existing = document.getElementById('addPersonInput');
+    if (existing) { existing.focus(); return; }
+
+    var wrap = document.createElement('div');
+    wrap.id = 'addPersonInput';
+    wrap.style.cssText = 'display:inline-flex;gap:.4rem;align-items:center;margin-left:.5rem;';
+
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = 'Name…';
+    inp.style.cssText = 'font-size:.9rem;padding:.3rem .5rem;width:8rem;';
+    inp.maxLength = 40;
+
+    var okBtn = document.createElement('button');
+    okBtn.type = 'button';
+    okBtn.textContent = 'Add';
+    okBtn.style.fontSize = '.9rem';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = '✕';
+    cancelBtn.style.cssText = 'font-size:.9rem;background:none;border:none;cursor:pointer;color:#888;';
+
+    function submit() {
+      var name = inp.value.trim();
+      wrap.remove();
+      if (name) {
+        addParticipant(name);
+        renderBoard();
+      }
+    }
+
+    okBtn.addEventListener('click', submit);
+    cancelBtn.addEventListener('click', function () { wrap.remove(); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') submit();
+      if (e.key === 'Escape') wrap.remove();
+    });
+
+    wrap.appendChild(inp);
+    wrap.appendChild(okBtn);
+    wrap.appendChild(cancelBtn);
+    addPersonBtnEl.insertAdjacentElement('afterend', wrap);
+    inp.focus();
+  }
+
+  // ─── Render receipt ───────────────────────────────────────────────────────
 
   function renderReceipt(data) {
     receiptData = data;
@@ -289,146 +790,26 @@
 
     for (var i = 0; i < data.items.length; i++) {
       var d = data.items[i];
-      items.push({ id: ++itemIdCounter, name: d.name, price: d.price, qty: d.qty || 1, checked: true, removed: false });
+      items.push({ id: ++itemIdCounter, name: d.name, price: d.price, qty: d.qty || 1, assignedTo: [] });
+    }
+
+    // Seed one default participant on first load only
+    if (participants.length === 0) {
+      addParticipant('Me');
     }
 
     var meta = '';
     if (data.restaurant) meta += '<strong>' + escapeHtml(data.restaurant) + '</strong>';
-    if (data.date)       meta += (meta ? '<br>' : '') + escapeHtml(data.date);
+    if (data.date)       meta += (meta ? ' · ' : '') + escapeHtml(data.date);
     receiptMetaEl.innerHTML = meta;
-
-    renderItemList();
-
-    dispSubtotalEl.textContent = data.subtotal > 0 ? formatMoney(data.subtotal) : '—';
-    dispTaxEl.textContent      = data.tax      > 0 ? formatMoney(data.tax)      : '—';
-    dispTipEl.textContent      = data.tip      > 0 ? formatMoney(data.tip)      : '—';
-    dispTotalEl.textContent    = data.total    > 0 ? formatMoney(data.total)    : '—';
 
     resultsSectionEl.hidden = false;
     resultsSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    updatePortion();
 
-    if (data.subtotal > 0) {
-      var sum = 0;
-      for (var j = 0; j < items.length; j++) sum += items[j].price;
-      var diff = Math.abs(sum - data.subtotal);
-      if (diff > 0.05) {
-        setNotice(resultsNoticeEl, 'warn',
-          'Item prices sum to ' + formatMoney(sum) + ' but subtotal is ' + formatMoney(data.subtotal) +
-          '. Portion = item ÷ subtotal × total.');
-      } else {
-        setNotice(resultsNoticeEl, '', '');
-      }
-    }
-  }
-
-  function renderItemList() {
-    itemListEl.innerHTML = '';
-    for (var i = 0; i < items.length; i++) {
-      itemListEl.appendChild(makeItemEl(items[i]));
-    }
-  }
-
-  function makeItemEl(item) {
-    var div = document.createElement('div');
-    div.className = 'item-row' + (item.removed ? ' removed' : '');
-    div.dataset.id = String(item.id);
-
-    var cbId = 'cb-' + item.id;
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.id = cbId;
-    cb.checked = item.checked;
-
-    var lbl = document.createElement('label');
-    lbl.htmlFor = cbId;
-
-    var nameSpan = document.createElement('span');
-    nameSpan.className = 'item-name';
-    nameSpan.textContent = item.qty > 1 ? item.qty + '× ' + item.name : item.name;
-
-    var priceSpan = document.createElement('span');
-    priceSpan.className = 'item-price';
-    priceSpan.textContent = formatMoney(item.price);
-
-    lbl.appendChild(nameSpan);
-    lbl.appendChild(priceSpan);
-
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove ' + item.name);
-
-    cb.addEventListener('change', (function (it, checkbox) {
-      return function () { it.checked = checkbox.checked; updatePortion(); };
-    }(item, cb)));
-
-    removeBtn.addEventListener('click', (function (it, el) {
-      return function () {
-        it.removed = true;
-        it.checked = false;
-        el.classList.add('removed');
-        updatePortion();
-      };
-    }(item, div)));
-
-    div.appendChild(cb);
-    div.appendChild(lbl);
-    div.appendChild(removeBtn);
-    return div;
-  }
-
-  function syncCheckboxes() {
-    var rows = itemListEl.querySelectorAll('.item-row');
-    for (var i = 0; i < rows.length; i++) {
-      var id = parseInt(rows[i].dataset.id, 10);
-      for (var j = 0; j < items.length; j++) {
-        if (items[j].id === id) {
-          var cb = rows[i].querySelector('input[type="checkbox"]');
-          if (cb) cb.checked = items[j].checked;
-          break;
-        }
-      }
-    }
-  }
-
-  function updatePortion() {
-    if (!receiptData) return;
-    var subtotal = receiptData.subtotal;
-    var total    = receiptData.total;
-
-    if (subtotal <= 0 || total <= 0) {
-      portionAmountEl.textContent = '—';
-      portionDetailEl.textContent = 'Missing subtotal or total from receipt.';
-      return;
-    }
-
-    var selectedSum = 0, count = 0;
-    for (var i = 0; i < items.length; i++) {
-      if (!items[i].removed && items[i].checked) {
-        selectedSum += items[i].price;
-        count++;
-      }
-    }
-
-    if (count === 0) {
-      portionAmountEl.textContent = formatMoney(0);
-      portionDetailEl.textContent = 'No items selected.';
-      return;
-    }
-
-    var portion = Math.round((selectedSum / subtotal) * total * 100) / 100;
-    portionAmountEl.textContent = formatMoney(portion);
-    var pct = ((selectedSum / subtotal) * 100).toFixed(1);
-    portionDetailEl.textContent =
-      count + ' item' + (count !== 1 ? 's' : '') +
-      ' · ' + formatMoney(selectedSum) + ' of ' + formatMoney(subtotal) +
-      ' subtotal (' + pct + '%) · includes proportional tax & tip';
+    renderBoard();
   }
 
   // ─── Bookmarklet ─────────────────────────────────────────────────────────
-  // Runs on a Toast receipt page; extracts data and opens this tool with it.
 
   var BOOKMARKLET_CODE = '(function(){' +
     'var nd=document.getElementById(\'__NEXT_DATA__\'),p=null;' +
@@ -464,19 +845,15 @@
     inputNoticeEl    = document.getElementById('inputNotice');
     resultsSectionEl = document.getElementById('resultsSection');
     receiptMetaEl    = document.getElementById('receiptMeta');
-    itemListEl       = document.getElementById('itemList');
-    selectAllBtnEl   = document.getElementById('selectAllBtn');
-    deselectAllBtnEl = document.getElementById('deselectAllBtn');
-    dispSubtotalEl   = document.getElementById('dispSubtotal');
-    dispTaxEl        = document.getElementById('dispTax');
-    dispTipEl        = document.getElementById('dispTip');
-    dispTotalEl      = document.getElementById('dispTotal');
-    portionAmountEl  = document.getElementById('portionAmount');
-    portionDetailEl  = document.getElementById('portionDetail');
-    resultsNoticeEl  = document.getElementById('resultsNotice');
+    summaryInlineEl  = document.getElementById('summaryInline');
+    poolCardsEl      = document.getElementById('poolCards');
+    trashZoneEl      = document.getElementById('trashZone');
+    lanesEl          = document.getElementById('lanes');
+    addPersonBtnEl   = document.getElementById('addPersonBtn');
 
-    // Wire up bookmarklet href
     document.getElementById('bookmarkletLink').href = 'javascript:' + BOOKMARKLET_CODE;
+
+    setupTrashZone();
 
     fetchBtnEl.addEventListener('click', function () {
       var url = receiptUrlEl.value.trim();
@@ -499,15 +876,13 @@
       renderReceipt(parsed);
     });
 
-    selectAllBtnEl.addEventListener('click', function () {
-      for (var i = 0; i < items.length; i++) { if (!items[i].removed) items[i].checked = true; }
-      syncCheckboxes();
-      updatePortion();
-    });
-    deselectAllBtnEl.addEventListener('click', function () {
-      for (var i = 0; i < items.length; i++) { items[i].checked = false; }
-      syncCheckboxes();
-      updatePortion();
+    addPersonBtnEl.addEventListener('click', promptAddPerson);
+
+    // Dismiss touch selection when clicking outside pool cards
+    document.addEventListener('click', function (e) {
+      if (!poolCardsEl.contains(e.target)) {
+        clearTouchSelection();
+      }
     });
 
     // Load from bookmarklet hash data
