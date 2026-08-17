@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US airline hub map – Webtools</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <style>
+        a.back { margin-bottom: 1rem; display: inline-block; }
+        .hub-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .hub-map-col {
+            flex: 1 1 640px;
+            min-width: 320px;
+            position: relative;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 0.75rem;
+        }
+        .hub-side-col {
+            flex: 0 0 280px;
+            min-width: 240px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        #hubMap { width: 100%; height: auto; display: block; }
+        .hub-state { fill: #e2e2e2; stroke: #b7b7b7; stroke-width: 0.6; }
+        .hub-buttons-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .hub-btn {
+            font-size: 0.85rem;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 0.35rem 0.6rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .hub-btn:hover { background: #eee; }
+        .hub-legend-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #666;
+            margin: 0 0 0.5rem;
+        }
+        .hub-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.4rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            user-select: none;
+        }
+        .hub-legend-item:hover { background: #ececec; }
+        .hub-legend-item.off { background: #f0f0f0; }
+        .hub-legend-item.off .hub-swatch { opacity: 0.35; }
+        .hub-legend-item.off .hub-legend-count { opacity: 0.5; }
+        .hub-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex: 0 0 auto;
+        }
+        .hub-legend-name { flex: 1; color: #1a1a1a; font-weight: 500; }
+        .hub-legend-item.off .hub-legend-name { color: #444; text-decoration: line-through; text-decoration-color: #aaa; }
+        .hub-legend-count { color: #777; font-size: 0.75rem; }
+        .hub-divider { height: 1px; background: #ddd; margin: 0.75rem 0; }
+        .hub-key-note {
+            font-size: 0.8rem;
+            color: #555;
+            line-height: 1.6;
+        }
+        .hub-key-note b { color: #222; }
+        #hubTooltip {
+            position: absolute;
+            pointer-events: none;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            max-width: 240px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            opacity: 0;
+            transition: opacity 0.1s;
+            z-index: 10;
+        }
+        #hubTooltip .t-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 0.25rem; }
+        #hubTooltip .t-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem; }
+        #hubTooltip .t-dot { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+        #hubTooltip .t-focus { opacity: 0.6; font-style: italic; }
+    </style>
+</head>
+<body>
+    <a class="back" href="../index.html">← Back</a>
+    <h1>US airline hub map</h1>
+    <p>All major US carriers' hubs, bases, and focus cities overlaid on one map. Click a legend item to isolate a carrier. Hover any city for the full list of airlines operating there. Solid dots = hub or operating base, hollow rings = focus city.</p>
+
+    <div class="hub-layout">
+        <div class="hub-map-col">
+            <svg id="hubMap" viewBox="0 0 960 600"></svg>
+            <div id="hubTooltip"></div>
+        </div>
+        <div class="hub-side-col">
+            <div class="hub-buttons-row">
+                <button type="button" class="hub-btn" id="hubShowAll">Show all</button>
+                <button type="button" class="hub-btn" id="hubHideAll">Hide all</button>
+            </div>
+            <p class="hub-legend-title">Carriers</p>
+            <div id="hubLegend"></div>
+            <div class="hub-divider"></div>
+            <p class="hub-key-note">
+                <b>Solid dot</b> — designated hub or operating base.<br>
+                <b>Hollow ring</b> — focus city (thinner route network, still airline-relevant for fares).<br>
+                Multi-airline cities render as a small pie, one wedge per carrier present.
+            </p>
+        </div>
+    </div>
+
+    <p style="margin-top: 1rem; font-size: 0.85rem; color: #666;">
+        Data compiled from public airline hub listings, current as of 2026. Hub designations shift over time and should be re-checked against each airline's own newsroom before citing externally.
+    </p>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+    <script src="../js/us-airline-hub-map.js"></script>
+</body>
+</html>
