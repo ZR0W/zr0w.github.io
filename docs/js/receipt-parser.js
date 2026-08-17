@@ -41,17 +41,60 @@
     el.textContent = msg || '';
   }
 
-  // ─── Parse Toast __NEXT_DATA__ (from fetched HTML) ───────────────────────
+  // ─── Provider detection ───────────────────────────────────────────────────
+
+  function detectProvider(url) {
+    if (/toasttab\.com/i.test(url))      return 'toast';
+    if (/squareup\.com\/r\//i.test(url)) return 'square';
+    return 'generic';
+  }
+
+  // ─── Parse __NEXT_DATA__ (tries Toast then Square extractors) ────────────
 
   function parseNextDataHtml(html) {
     var match = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
     if (!match) return null;
     var data;
     try { data = JSON.parse(match[1]); } catch (e) { return null; }
-    return extractFromNextData(data);
+    return extractToastNextData(data) || extractSquareNextData(data);
   }
 
-  function extractFromNextData(data) {
+  // ─── Square __NEXT_DATA__ extractor ──────────────────────────────────────
+
+  function extractSquareNextData(data) {
+    var rc = data && data.props && data.props.pageProps && data.props.pageProps.receipt;
+    if (!rc) return null;
+
+    var lineItems = rc.lineItems || [];
+    var parsedItems = [];
+    for (var i = 0; i < lineItems.length; i++) {
+      var li = lineItems[i];
+      var name  = li.name || li.variationName || ('Item ' + (parsedItems.length + 1));
+      var qty   = parseInt(li.quantity || 1, 10) || 1;
+      var price = li.totalMoney    ? li.totalMoney.amount / 100
+                : li.basePriceMoney ? li.basePriceMoney.amount * qty / 100 : 0;
+      if (price > 0) parsedItems.push({ name: name, price: price, qty: qty });
+    }
+    if (!parsedItems.length) return null;
+
+    function cents(obj) { return obj && obj.amount ? obj.amount / 100 : 0; }
+
+    var subtotal = cents(rc.subtotalMoney);
+    var tax      = cents(rc.taxMoney);
+    var tip      = cents(rc.tipMoney);
+    var total    = cents(rc.totalMoney);
+    if (total <= 0 && subtotal > 0) total = subtotal + tax + tip;
+
+    var restaurant = rc.merchantName || rc.locationName || '';
+    var date = '';
+    if (rc.createdAt) { try { date = new Date(rc.createdAt).toLocaleDateString(); } catch (e) {} }
+
+    return { restaurant: restaurant, date: date, subtotal: subtotal, tax: tax, tip: tip, total: total, items: parsedItems };
+  }
+
+  // ─── Toast __NEXT_DATA__ extractor ───────────────────────────────────────
+
+  function extractToastNextData(data) {
     var pp = data && data.props && data.props.pageProps;
     if (!pp) return null;
 
@@ -206,40 +249,79 @@
     return { restaurant: restaurant, date: '', subtotal: subtotal, tax: tax, tip: tip, total: total, items: parsedItems };
   }
 
-  // ─── CORS-proxy fetch ─────────────────────────────────────────────────────
+  // ─── Fetch helpers ────────────────────────────────────────────────────────
+
+  function fetchUrl(url, onSuccess, onError) {
+    fetch(url)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(onSuccess)
+      .catch(onError);
+  }
+
+  var PROXIES = [
+    {
+      build:   function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); },
+      extract: function (r) { return r.text(); }
+    },
+    {
+      build:   function (u) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(u); },
+      extract: function (r) {
+        return r.json().then(function (j) {
+          if (!j.contents) throw new Error('empty');
+          return j.contents;
+        });
+      }
+    },
+    {
+      build:   function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); },
+      extract: function (r) { return r.text(); }
+    }
+  ];
+
+  // ─── Provider-aware fetch ─────────────────────────────────────────────────
 
   function fetchReceipt(url) {
+    var provider = detectProvider(url);
+
+    if (provider === 'toast') {
+      setNotice(inputNoticeEl, 'warn',
+        'Toast blocks automated requests. Use the bookmarklet above — drag it to your bookmarks bar, open the receipt in your browser, and click it.');
+      document.getElementById('textDetails').open = true;
+      return;
+    }
+
     setNotice(inputNoticeEl, 'info', 'Fetching receipt…');
     fetchBtnEl.disabled = true;
 
-    var proxies = [
-      {
-        build:   function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); },
-        extract: function (r) { return r.text(); }
-      },
-      {
-        build:   function (u) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(u); },
-        extract: function (r) {
-          return r.json().then(function (j) {
-            if (!j.contents) throw new Error('empty');
-            return j.contents;
-          });
+    if (provider === 'square') {
+      fetchUrl(url, function (html) {
+        fetchBtnEl.disabled = false;
+        var parsed = parseNextDataHtml(html);
+        if (parsed && parsed.items.length) {
+          setNotice(inputNoticeEl, '', '');
+          renderReceipt(parsed);
+        } else {
+          setNotice(inputNoticeEl, 'error',
+            'Could not extract items from the Square receipt. Try pasting the receipt text below.');
+          document.getElementById('textDetails').open = true;
         }
-      },
-      {
-        build:   function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); },
-        extract: function (r) { return r.text(); }
-      }
-    ];
+      }, function () {
+        fetchBtnEl.disabled = false;
+        setNotice(inputNoticeEl, 'error',
+          'Could not fetch the Square receipt. Try pasting the receipt text below.');
+        document.getElementById('textDetails').open = true;
+      });
+      return;
+    }
 
-    tryProxy(url, proxies, 0);
+    tryProxy(url, PROXIES, 0);
   }
 
   function tryProxy(url, proxies, idx) {
     if (idx >= proxies.length) {
       fetchBtnEl.disabled = false;
       setNotice(inputNoticeEl, 'error',
-        'Toast blocks automated requests. Use the bookmarklet (drag it to your bookmarks bar), or paste the receipt text below.');
+        'Could not fetch via proxy. Use the bookmarklet or paste the receipt text below.');
       document.getElementById('textDetails').open = true;
       return;
     }
@@ -820,15 +902,15 @@
       'ck=rc.check||rc.order||rc,' +
       'sl=ck.selections||ck.lineItems||ck.items||[];' +
       'if(sl.length){p={s:\'nd\',' +
-        'r:((rc.restaurant||rc.restaurantInfo||{}).name||document.title||\'\')+\'\',' +
+        'r:((rc.restaurant||rc.restaurantInfo||{}).name||rc.merchantName||rc.locationName||document.title||\'\')+\'\',' +
         'i:sl.filter(function(x){return!x.parentItemId;}).map(function(x){' +
           'return{n:x.displayName||x.name||\'Item\',' +
-                 'p:+(x.price||x.unitPrice||0),' +
+                 'p:+(x.price||x.unitPrice||(x.totalMoney&&x.totalMoney.amount/100)||0),' +
                  'q:+(x.quantity||x.qty||1)};}),' +
-        'sb:+(ck.subtotal||rc.subtotal||0),' +
-        'tx:+(ck.taxAmount||ck.tax||rc.taxAmount||rc.tax||0),' +
-        'tp:+(ck.gratuity||ck.tip||rc.gratuity||rc.tip||0),' +
-        'tt:+(ck.totalAmount||ck.total||rc.totalAmount||rc.total||0)' +
+        'sb:+(ck.subtotal||rc.subtotal||(rc.subtotalMoney&&rc.subtotalMoney.amount/100)||0),' +
+        'tx:+(ck.taxAmount||ck.tax||rc.taxAmount||rc.tax||(rc.taxMoney&&rc.taxMoney.amount/100)||0),' +
+        'tp:+(ck.gratuity||ck.tip||rc.gratuity||rc.tip||(rc.tipMoney&&rc.tipMoney.amount/100)||0),' +
+        'tt:+(ck.totalAmount||ck.total||rc.totalAmount||rc.total||(rc.totalMoney&&rc.totalMoney.amount/100)||0)' +
       '};}' +
     '}catch(e){}}' +
     'if(!p||!p.i||!p.i.length){p={s:\'txt\',t:document.body.innerText};}' +
