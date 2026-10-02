@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 
 // ---------- setup ----------
+// phones/tablets: touch controls on from the start, and a lighter render load
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -12,12 +14,13 @@ const scene = new THREE.Scene();
 const HORIZON = new THREE.Color('#e4ecf2');
 scene.fog = new THREE.Fog(HORIZON, 70, 280);
 scene.background = HORIZON;
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2500);
+const fovFor = aspect => aspect < 1 ? 75 : 60;   // widen the view in portrait
+const camera = new THREE.PerspectiveCamera(fovFor(innerWidth / innerHeight), innerWidth / innerHeight, 0.1, 2500);
 
 scene.add(new THREE.HemisphereLight('#ffffff', '#8a8f7a', 1.5));
 const sun = new THREE.DirectionalLight('#fffaf0', 1.8);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.setScalar(IS_TOUCH ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 1, far: 220 });
 sun.shadow.bias = -0.0005;
 scene.add(sun, sun.target);
@@ -570,8 +573,10 @@ function tone(type, freqs, dur, vol) {
 const chirp = vol => [0, 0.12, 0.22].forEach((d, i) => setTimeout(() => tone('sine', [[2600 + i * 400, 0], [3800, 0.05], [3000, 0.09]], 0.1, vol), d * 1000));
 const howl = vol => tone('sine', [[320, 0], [620, 0.5], [580, 1.4], [420, 2]], 2, vol);
 function startAudio() {
-  if (actx) return;
-  actx = new AudioContext();
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  const AC = globalThis.AudioContext || globalThis.webkitAudioContext;   // older iOS Safari only has the prefixed one
+  if (!AC) return;
+  actx = new AC();
   // the machine's low grind, louder as you get closer
   const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
   o.type = 'sawtooth'; o.frequency.value = 48; f.type = 'lowpass'; f.frequency.value = 180; g.gain.value = 0;
@@ -598,17 +603,92 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
-let yaw = 0, pitch = 0.3, dist = 11, dragging = false, lx = 0, ly = 0;
+// Mouse and touch share one pointer system:
+//   - a touch that starts on the left part of the screen becomes a virtual joystick
+//   - any other pointer drags the camera; two of them pinch-zoom
+let yaw = 0, pitch = 0.3, dist = 11;
 const cv = renderer.domElement;
-cv.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; cv.setPointerCapture(e.pointerId); });
-cv.addEventListener('pointerup', () => { dragging = false; });
-cv.addEventListener('pointermove', e => {
-  if (!dragging) return;
-  yaw -= (e.clientX - lx) * 0.006;
-  pitch = clamp(pitch + (e.clientY - ly) * 0.005, -1.2, 1.45);   // full freedom: from worm's-eye to bird's-eye
-  lx = e.clientX; ly = e.clientY;
+const lookers = new Map();                       // pointerId -> last {x, y}
+const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0, mag: 0 };
+const touchBtn = { jump: false };
+const stickEl = document.getElementById('stick'), knobEl = document.getElementById('knob');
+const STICK_R = 55;
+let pinchDist = 0;
+
+function enableTouchUI() {
+  if (document.body.classList.contains('touch')) return;
+  document.body.classList.add('touch');
+  drawHud();
+}
+const pinchSpan = () => { const [a, b] = [...lookers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+function placeStick(x, y, active) {
+  stickEl.style.left = x + 'px'; stickEl.style.top = y + 'px';
+  stickEl.classList.toggle('active', active);
+}
+function resetStick() {
+  joy.id = null; joy.x = joy.y = joy.mag = 0;
+  knobEl.style.transform = 'translate(-50%, -50%)';
+  stickEl.removeAttribute('style');           // back to its resting spot from the CSS
+  stickEl.classList.remove('active');
+}
+
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  if (e.pointerType === 'touch') {
+    enableTouchUI();
+    if (joy.id === null && e.clientX < innerWidth * 0.45) {
+      joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY;
+      placeStick(e.clientX, e.clientY, true);
+      return;
+    }
+  }
+  lookers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (lookers.size === 2) pinchDist = pinchSpan();
 });
+cv.addEventListener('pointermove', e => {
+  if (e.pointerId === joy.id) {
+    let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
+    const m = Math.hypot(dx, dy);
+    if (m > STICK_R) { dx *= STICK_R / m; dy *= STICK_R / m; }
+    joy.x = dx / STICK_R; joy.y = -dy / STICK_R; joy.mag = Math.min(1, m / STICK_R);
+    knobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    return;
+  }
+  const p = lookers.get(e.pointerId);
+  if (!p) return;
+  if (lookers.size === 1) {
+    const k = e.pointerType === 'touch' ? 1.4 : 1;
+    yaw -= (e.clientX - p.x) * 0.006 * k;
+    pitch = clamp(pitch + (e.clientY - p.y) * 0.005 * k, -1.2, 1.45);   // full freedom: from worm's-eye to bird's-eye
+  }
+  p.x = e.clientX; p.y = e.clientY;
+  if (lookers.size === 2) {
+    const span = pinchSpan();
+    dist = clamp(dist - (span - pinchDist) * 0.05, 3, 40);
+    pinchDist = span;
+  }
+});
+function endPointer(e) {
+  if (e.pointerId === joy.id) resetStick();
+  lookers.delete(e.pointerId);
+  if (lookers.size === 2) pinchDist = pinchSpan();
+}
+cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('pointercancel', endPointer);
 addEventListener('wheel', e => { dist = clamp(dist + e.deltaY * 0.01, 3, 40); }, { passive: true });
+
+// on-screen buttons (touch only)
+function holdButton(id, onDown, onUp) {
+  const b = document.getElementById(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('down'); b.setPointerCapture(e.pointerId); onDown(); });
+  const up = () => { b.classList.remove('down'); onUp?.(); };
+  b.addEventListener('pointerup', up);
+  b.addEventListener('pointercancel', up);
+}
+holdButton('btnJump', () => { touchBtn.jump = true; }, () => { touchBtn.jump = false; });
+holdButton('btnMoo', () => { startAudio(); playerMoo(); });
+holdButton('btnPpt', () => { stutter = !stutter; drawHud(); });
+addEventListener('contextmenu', e => { if (document.body.classList.contains('touch')) e.preventDefault(); });
 
 const overlay = document.getElementById('overlay');
 overlay.addEventListener('click', () => {
@@ -619,10 +699,13 @@ overlay.addEventListener('click', () => {
 
 const hud = document.getElementById('hud');
 function drawHud() {
-  hud.innerHTML = `WASD walk · Shift run · Space jump · M moo · drag to look · wheel zoom<br>
-    P: PowerPoint mode (authentic stutter) — <span class="${stutter ? 'on' : ''}">${stutter ? 'ON' : 'off'}</span>`;
+  const state = `<span class="${stutter ? 'on' : ''}">${stutter ? 'ON' : 'off'}</span>`;
+  hud.innerHTML = document.body.classList.contains('touch')
+    ? `Left thumb: walk (push far to run) · drag right side: look · pinch: zoom<br>PPT mode (authentic stutter) — ${state}`
+    : `WASD walk · Shift run · Space jump · M moo · drag to look · wheel zoom<br>P: PowerPoint mode (authentic stutter) — ${state}`;
+  document.getElementById('btnPpt').classList.toggle('on', stutter);
 }
-drawHud();
+if (IS_TOUCH) enableTouchUI(); else drawHud();
 
 const card = document.getElementById('card');
 function showCard(text) {
@@ -646,11 +729,13 @@ let camDist = dist;
 const ray = new THREE.Raycaster();
 
 function updatePlayer(dt) {
-  const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-  const s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-  const running = keys.ShiftLeft || keys.ShiftRight;
+  const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+  const s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  const running = keys.ShiftLeft || keys.ShiftRight || joy.mag > 0.9;
   const mx = -Math.sin(yaw) * f + Math.cos(yaw) * s, mz = -Math.cos(yaw) * f - Math.sin(yaw) * s;
-  const len = Math.hypot(mx, mz), speed = running ? 13 : 6;
+  let len = Math.hypot(mx, mz);
+  if (len < 0.15) len = 0;                                         // joystick dead zone
+  const speed = (running ? 13 : 6) * Math.min(1, len);             // analog stick = analog speed
   tmp.set(len ? mx / len * speed : 0, 0, len ? mz / len * speed : 0);
   vel.lerp(tmp, damp(onGround ? 10 : 3, dt));
   if (len) heading = lerpAngle(heading, Math.atan2(mx, mz), damp(12, dt));
@@ -660,7 +745,7 @@ function updatePlayer(dt) {
   pushOut(cow.position);
 
   const g = groundAt(cow.position.x, cow.position.z);
-  if (keys.Space && onGround) { vy = 11; onGround = false; }
+  if ((keys.Space || touchBtn.jump) && onGround) { vy = 11; onGround = false; }
   vy -= 28 * dt;
   cow.position.y += vy * dt;
   if (cow.position.y <= g) { cow.position.y = g; vy = 0; onGround = true; } else if (cow.position.y > g + 0.05) onGround = false;
@@ -850,6 +935,7 @@ renderer.setAnimationLoop(() => {
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
+  camera.fov = fovFor(camera.aspect);
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
