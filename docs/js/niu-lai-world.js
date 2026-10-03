@@ -51,7 +51,20 @@ function mesh(geo, material, parent, pos, edges = true) {
 }
 const blockers = [];                       // meshes the camera can't pass through
 const block = m => (blockers.push(m), m);
-const colliders = [];                      // circles the walkers can't pass through
+// Static/kinematic collision shapes, all treated as vertical prisms:
+//   circle { x, z, r, top }   or   box { x, z, hx, hz, rot, top }  (rot = the mesh's rotation.y)
+// `top` is how high the shape is; anything you can get your feet above, you can stand on.
+const colliders = [];
+const circleCol = (x, z, r, top = Infinity) => { const c = { box: false, x, z, r, top }; colliders.push(c); return c; };
+const boxCol = (x, z, hx, hz, rot, top = Infinity) => { const c = { box: true, x, z, hx, hz, rot, top }; colliders.push(c); return c; };
+const COW_H = 3.4;   // anything lower than this at a spot is "in the way" of a standing cow
+// widest horizontal reach of a tree crown within the cow's height band
+function crownReach(cy, rx, ry = rx, cone = false) {
+  if (cone) return cy - ry <= COW_H ? rx : 0;               // a cone is widest at its base
+  if (cy <= COW_H) return rx;
+  const k = 1 - ((cy - COW_H) / ry) ** 2;
+  return k > 0 ? rx * Math.sqrt(k) : 0;
+}
 const animated = [];                       // per-frame world animation fns (t, dt)
 
 // ---------- terrain ----------
@@ -156,13 +169,62 @@ function spot(pred, R = 160) {
   }
   return [0, groundAt(0, 0), 0];
 }
-function pushOut(p, r = 0.6) {
+// Push a walker (circle of radius r, feet at feetY) out of every shape it overlaps.
+// Returns the highest top it is standing on (-Infinity if none).
+function resolve(p, r, feetY = -Infinity) {
+  let support = -Infinity;
   for (const c of colliders) {
-    const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = c.r + r;
-    if (d < min && d > 1e-4) { p.x = c.x + dx / d * min; p.z = c.z + dz / d * min; }
+    const dx = p.x - c.x, dz = p.z - c.z;
+    if (Math.abs(dx) > 20 || Math.abs(dz) > 20) continue;      // cheap reject (largest shape is ~16 across)
+    const onTop = feetY >= c.top - 0.35;                       // small step-up allowed
+    if (!c.box) {
+      const d = Math.hypot(dx, dz), min = c.r + r;
+      if (d >= min) continue;
+      if (onTop) { support = Math.max(support, c.top); continue; }
+      const nx = d > 1e-4 ? dx / d : 1, nz = d > 1e-4 ? dz / d : 0;
+      p.x = c.x + nx * min; p.z = c.z + nz * min;
+    } else {
+      const cos = Math.cos(c.rot), sin = Math.sin(c.rot);
+      const lx = dx * cos - dz * sin, lz = dx * sin + dz * cos;     // into the box's local frame
+      const cx = clamp(lx, -c.hx, c.hx), cz = clamp(lz, -c.hz, c.hz);
+      const ox = lx - cx, oz = lz - cz, od = Math.hypot(ox, oz);
+      if (od >= r) continue;
+      if (onTop) { support = Math.max(support, c.top); continue; }
+      let nlx, nlz;
+      if (od > 1e-4) { nlx = cx + ox / od * r; nlz = cz + oz / od * r; }
+      else if (c.hx - Math.abs(lx) < c.hz - Math.abs(lz)) { nlx = Math.sign(lx || 1) * (c.hx + r); nlz = lz; }  // centre got inside: exit the nearest side
+      else { nlx = lx; nlz = Math.sign(lz || 1) * (c.hz + r); }
+      p.x = c.x + nlx * cos + nlz * sin; p.z = c.z - nlx * sin + nlz * cos;
+    }
   }
   const dc = Math.hypot(p.x, p.z);
   if (dc > WORLD_R) { p.x *= WORLD_R / dc; p.z *= WORLD_R / dc; }
+  return support;
+}
+
+// Moving creatures (you + NPCs) also shove each other. A body is one circle, or two along its heading for long animals.
+const bodies = [];
+const addBody = (obj, r, opts = {}) => { const b = { obj, r, len: opts.len ?? 0, mass: opts.mass ?? 1, height: opts.height ?? 2 }; bodies.push(b); return b; };
+function bodyParts(b) {
+  const p = b.obj.position;
+  if (!b.len) return [[p.x, p.z]];
+  const sx = Math.sin(b.obj.rotation.y) * b.len, sz = Math.cos(b.obj.rotation.y) * b.len;
+  return [[p.x + sx, p.z + sz], [p.x - sx, p.z - sz]];
+}
+function separateBodies() {
+  for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+    const a = bodies[i], b = bodies[j], pa = a.obj.position, pb = b.obj.position;
+    if (Math.abs(pa.x - pb.x) > 6 || Math.abs(pa.z - pb.z) > 6) continue;
+    if (pa.y > pb.y + b.height - 0.2 || pb.y > pa.y + a.height - 0.2) continue;   // one is above the other (e.g. jumping over)
+    const wa = (1 / a.mass) / (1 / a.mass + 1 / b.mass), wb = 1 - wa;
+    for (const [ax, az] of bodyParts(a)) for (const [bx, bz] of bodyParts(b)) {
+      const dx = ax - bx, dz = az - bz, d = Math.hypot(dx, dz), min = a.r + b.r;
+      if (d >= min) continue;
+      const nx = d > 1e-4 ? dx / d : 1, nz = d > 1e-4 ? dz / d : 0, o = min - d;
+      pa.x += nx * o * wa; pa.z += nz * o * wa;
+      pb.x -= nx * o * wb; pb.z -= nz * o * wb;
+    }
+  }
 }
 
 // ---------- the cow (Niu Lai, walking upright for some reason) ----------
@@ -297,7 +359,7 @@ function steer(A, obj, tx, tz, speed, dt, r = 0.8) {
     A.heading = lerpAngle(A.heading, Math.atan2(dx, dz), damp(6, dt));
     moved = step / dt;
   }
-  pushOut(obj.position, r);
+  resolve(obj.position, r);
   obj.position.y = groundAt(obj.position.x, obj.position.z);
   obj.rotation.y = A.heading;
   A.walk = THREE.MathUtils.lerp(A.walk, Math.min(1, moved / 4), damp(8, dt));
@@ -312,10 +374,11 @@ for (let i = 0; i < 60; i++) {
   const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
   const h = rr(2.5, 5), r = rr(1.6, 3);
   block(mesh(new THREE.CylinderGeometry(0.3, 0.45, h, 6), mat('#7a5634'), g, [0, h / 2, 0]));
-  const crown = block(mesh(pick([new THREE.IcosahedronGeometry(r, 0), new THREE.ConeGeometry(r, r * 2.4, 6), new THREE.DodecahedronGeometry(r, 0)]),
+  const kind = Math.floor(rand() * 3);
+  const crown = block(mesh([new THREE.IcosahedronGeometry(r, 0), new THREE.ConeGeometry(r, r * 2.4, 6), new THREE.DodecahedronGeometry(r, 0)][kind],
     mat(pick(['#4f9a3c', '#5aa845', '#3f8a3a', '#6cb04a'])), g, [0, h + r * 0.7, 0]));
   crown.rotation.y = rand() * 6;
-  colliders.push({ x, z, r: 0.6 });
+  circleCol(x, z, Math.max(0.45, 0.85 * (kind === 1 ? crownReach(h + r * 0.7, r, r * 1.2, true) : crownReach(h + r * 0.7, r))));
 }
 // SketchUp "face-me" cutout trees: flat, and they always turn to look at you
 const faceMe = [];
@@ -332,7 +395,7 @@ for (let i = 0; i < 30; i++) {
   }
   mesh(new THREE.ShapeGeometry(shape), mat(pick(['#4c8f3a', '#5ea347']), { side: THREE.DoubleSide }), g, [0, 0, 0.01]);
   faceMe.push(g);
-  colliders.push({ x, z, r: 0.3 });
+  circleCol(x, z, Math.max(0.3, 0.85 * crownReach(4.2 * s, 1.8 * s, 2.2 * s)));
 }
 // grass + flowers
 {
@@ -352,11 +415,11 @@ for (let i = 0; i < 30; i++) {
 // boulders
 for (let i = 0; i < 25; i++) {
   const [x, y, z] = spot((a, b) => inGrass(a, b) || inDesert(a, b));
-  const r = rr(0.8, 2.6);
+  const r = rr(0.8, 2.6), sy = rr(0.6, 1);
   const rock = block(mesh(new THREE.DodecahedronGeometry(r, 0), mat(pick(['#9e9a90', '#b3ab98', '#8d877c'])), scene, [x, y + r * 0.3, z]));
-  rock.rotation.set(rand() * 6, rand() * 6, 0);
-  rock.scale.y = rr(0.6, 1);
-  colliders.push({ x, z, r: r * 0.9 });
+  rock.rotation.set(rr(-0.15, 0.15), rand() * 6, rr(-0.15, 0.15));
+  rock.scale.y = sy;
+  circleCol(x, z, r * 0.88, y + r * 0.3 + r * sy * 0.8);
 }
 
 // ---------- DESERT ----------
@@ -365,13 +428,16 @@ for (let i = 0; i < 35; i++) {
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rand() * 6; scene.add(g);
   const h = rr(2, 5), cm = mat('#4f9a52');
   block(mesh(new THREE.BoxGeometry(0.7, h, 0.7), cm, g, [0, h / 2, 0]));
+  let minX = -0.35, maxX = 0.35;
   [-1, 1].forEach(s => {
     if (rand() < 0.3) return;
     const ay = rr(1, h - 0.6), ah = rr(0.8, 1.6);
     mesh(new THREE.BoxGeometry(0.7, 0.45, 0.45), cm, g, [s * 0.65, ay, 0]);
     mesh(new THREE.BoxGeometry(0.45, ah, 0.45), cm, g, [s * 0.95, ay + ah / 2, 0]);
+    if (s < 0) minX = -1.18; else maxX = 1.18;
   });
-  colliders.push({ x, z, r: 0.6 });
+  const mid = (minX + maxX) / 2, rot = g.rotation.y;
+  boxCol(x + mid * Math.cos(rot), z - mid * Math.sin(rot), (maxX - minX) / 2, 0.35, rot);
 }
 // sun-bleached bones
 for (let i = 0; i < 12; i++) {
@@ -395,14 +461,15 @@ for (let i = 0; i < 12; i++) {
     const h = rr(14, 26), w = rr(6, 9);
     const cliff = block(mesh(new THREE.BoxGeometry(w, h, w * 0.8), mat(pick(['#a39e93', '#b5ad9c', '#8f8a80'])), scene, [x, groundAt(x, z) + h / 2 - 2, z]));
     cliff.rotation.set(rr(-0.08, 0.08), Math.PI / 2 - a + rr(-0.3, 0.3), rr(-0.08, 0.08));
-    colliders.push({ x, z, r: w * 0.55 });
+    boxCol(x, z, w / 2, w * 0.4, cliff.rotation.y);
   }
   // waterfall on the far wall, pouring into the pond
   const wa = VALLEY_GATE + Math.PI, wx = VALLEY.x + Math.cos(wa) * 29, wz = VALLEY.y + Math.sin(wa) * 29;
   const wg = new THREE.Group(); wg.position.set(wx, groundAt(wx, wz), wz); wg.rotation.y = -Math.PI / 2 - wa; scene.add(wg);
   block(mesh(new THREE.BoxGeometry(14, 24, 6), mat('#9b968b'), wg, [0, 10, -2]));
   mesh(new THREE.BoxGeometry(4, 22, 0.4), mat('#9fd8f5', { emissive: '#3a7fb0', emissiveIntensity: 0.4 }), wg, [0, 9, 1.2]);
-  colliders.push({ x: wx, z: wz, r: 6 });
+  const wr = wg.rotation.y;
+  boxCol(wx - 2 * Math.sin(wr), wz - 2 * Math.cos(wr), 7, 3, wr);
   const drops = [];
   for (let i = 0; i < 14; i++) drops.push(mesh(new THREE.BoxGeometry(0.6, 1.2, 0.3), mat('#ffffff'), wg, [rr(-1.6, 1.6), 0, 1.5], false));
   animated.push(t => drops.forEach((d, i) => { d.position.y = 20 - ((t * 9 + i * 1.6) % 22); }));
@@ -411,8 +478,9 @@ for (let i = 0; i < 12; i++) {
     const [x, y, z] = spot(inValley);
     const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
     block(mesh(new THREE.CylinderGeometry(0.3, 0.4, 3, 6), mat('#7a5634'), g, [0, 1.5, 0]));
-    block(mesh(new THREE.IcosahedronGeometry(rr(1.8, 2.6), 0), mat(pick(['#3f9b4a', '#e88fb0', '#f4b6c8'])), g, [0, 4, 0]));
-    colliders.push({ x, z, r: 0.6 });
+    const cr = rr(1.8, 2.6);
+    block(mesh(new THREE.IcosahedronGeometry(cr, 0), mat(pick(['#3f9b4a', '#e88fb0', '#f4b6c8'])), g, [0, 4, 0]));
+    circleCol(x, z, Math.max(0.45, 0.85 * crownReach(4, cr)));
   }
 }
 // the herd, waiting in the valley
@@ -423,7 +491,8 @@ for (let i = 0; i < 9; i++) {
   H.cow.position.set(x, y, z);
   const sc = rr(0.9, 1.3); H.cow.scale.setScalar(sc);
   scene.add(H.cow);
-  herd.push({ C: H, heading: rand() * 6, phase: 0, walk: 0, timer: rr(0, 4), target: new THREE.Vector3(x, y, z), moo: 0, toff: rand() * 10 });
+  herd.push({ C: H, heading: rand() * 6, phase: 0, walk: 0, timer: rr(0, 4), target: new THREE.Vector3(x, y, z), moo: 0, toff: rand() * 10, r: 0.75 * sc });
+  addBody(H.cow, 0.75 * sc, { mass: 2, height: COW_H * sc });
 }
 
 // ---------- characters ----------
@@ -432,7 +501,7 @@ const mother = makeCow({ body: '#b8865a', spot: '#5a3a22' });
 mother.cow.scale.setScalar(1.45);
 mother.cow.position.set(6, groundAt(6, 8), 8);
 scene.add(mother.cow);
-colliders.push({ x: 6, z: 8, r: 1 });
+circleCol(6, 8, 1.15, mother.cow.position.y + COW_H * 1.45);
 const motherState = { heading: 0 };
 
 // Bao La the leopard
@@ -440,6 +509,7 @@ const bao = makeQuad({ body: '#e8a63a', spot: '#2a1f14', snoutColor: '#f6dfb4', 
 bao.g.position.set(-25, groundAt(-25, 25), 25);
 bao.home = new THREE.Vector3(-25, 0, 25);
 scene.add(bao.g);
+addBody(bao.g, 0.6, { len: 0.6, mass: 1.5, height: 1.9 });
 
 // wolves
 const wolves = [];
@@ -449,6 +519,7 @@ for (let i = 0; i < 3; i++) {
   W.ang = i / 3 * Math.PI * 2; W.noticed = false; W.howl = 0;
   W.g.position.set(WOLF_DEN.x + Math.cos(W.ang) * 12, 0, WOLF_DEN.z + Math.sin(W.ang) * 12);
   scene.add(W.g);
+  addBody(W.g, 0.6, { len: 0.55, height: 2 });
   wolves.push(W);
 }
 
@@ -513,7 +584,7 @@ const machineParts = {};
 }
 machine.position.set(MACHINE_HOME.x, groundAt(MACHINE_HOME.x, MACHINE_HOME.y), MACHINE_HOME.y);
 scene.add(machine);
-const machineColliders = [-4, 0, 4].map(() => { const c = { x: 0, z: 0, r: 5.5 }; colliders.push(c); return c; });
+const machineCol = boxCol(0, 0, 7.6, 5.6, 0);
 const machineState = { t: 0, heading: 0 };
 
 // clouds (cuboid, obviously)
@@ -727,6 +798,8 @@ let heading = 0, vy = 0, onGround = true, airTime = 0, time = 0;
 const camTarget = new THREE.Vector3(0, 2.2, 0), camDir = new THREE.Vector3();
 let camDist = dist;
 const ray = new THREE.Raycaster();
+const PLAYER_R = 0.7;
+addBody(cow, PLAYER_R, { height: COW_H });
 
 function updatePlayer(dt) {
   const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
@@ -742,9 +815,9 @@ function updatePlayer(dt) {
 
   cow.position.x += vel.x * dt;
   cow.position.z += vel.z * dt;
-  pushOut(cow.position);
+  const support = resolve(cow.position, PLAYER_R, cow.position.y);
 
-  const g = groundAt(cow.position.x, cow.position.z);
+  const g = Math.max(groundAt(cow.position.x, cow.position.z), support);
   if ((keys.Space || touchBtn.jump) && onGround) { vy = 11; onGround = false; }
   vy -= 28 * dt;
   cow.position.y += vy * dt;
@@ -854,10 +927,7 @@ function updateMachine(dt) {
   machine.position.y = groundAt(tx, tz) + Math.abs(Math.sin(ms.t * 3)) * 0.25;   // clunk clunk
   machine.rotation.y = ms.heading;
   machine.rotation.z = Math.sin(ms.t * 3) * 0.02;
-  [-4, 0, 4].forEach((off, i) => {
-    machineColliders[i].x = tx + Math.sin(ms.heading) * off;
-    machineColliders[i].z = tz + Math.cos(ms.heading) * off;
-  });
+  machineCol.x = tx; machineCol.z = tz; machineCol.rot = ms.heading;
   machineParts.gears.forEach((g, i) => { g.rotation.x = ms.t * (i ? 1.5 : -1.5); });
   machineParts.pistons.forEach((p, i) => { p.position.y = 8 + Math.abs(Math.sin(ms.t * 5 + i * 1.2)) * 1.4; });
   machineParts.arm.rotation.x = Math.sin(ms.t * 0.9) * 0.5 - 0.2;
@@ -902,6 +972,19 @@ function update(dt) {
   updatePlayer(dt);
   updateNPCs(dt);
   updateMachine(dt);
+  for (let pass = 0; pass < 3; pass++) {   // a few relaxation passes so crowds pinned against walls settle
+    separateBodies();
+    for (const b of bodies) {
+      const p = b.obj.position;
+      if (b.obj === cow) {
+        const g = Math.max(groundAt(p.x, p.z), resolve(p, PLAYER_R, p.y));
+        if (p.y < g) p.y = g;           // shoved up onto a rock edge
+      } else {
+        resolve(p, b.r + b.len, -Infinity);
+        p.y = groundAt(p.x, p.z);
+      }
+    }
+  }
   animated.forEach(fn => fn(time, dt));
   faceMe.forEach(g => { g.rotation.y = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z); });
   updateCamera(dt);
