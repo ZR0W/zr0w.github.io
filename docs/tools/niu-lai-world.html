@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Niu Lai World – Webtools</title>
+<!-- Full-screen WebGL game: Simple.css is intentionally omitted (it would fight the full-viewport canvas),
+     and the JS is an ES module because three.js only ships as ES modules. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #e4ecf2; font-family: Calibri, "Segoe UI", system-ui, sans-serif;
+    touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  canvas { display: block; cursor: grab; touch-action: none; }
+  canvas:active { cursor: grabbing; }
+
+  /* ink-wash title card — the poster promised elegance... */
+  #overlay { position: fixed; inset: 0; z-index: 10; cursor: pointer; transition: opacity .8s;
+    background: radial-gradient(ellipse at 50% 30%, #f8f3e8, #e9dfc9); color: #1d1d1d; overflow: hidden; }
+  #overlay svg { position: absolute; inset: auto 0 0 0; width: 100%; height: 70%; }
+  #overlay .title { position: absolute; top: 9%; right: 14%; writing-mode: vertical-rl; font-family: "Ma Shan Zheng", "KaiTi", serif;
+    font-size: clamp(90px, 16vw, 200px); line-height: 1; letter-spacing: 10px; }
+  #overlay .seal { position: absolute; top: 12%; right: calc(14% + clamp(110px, 19vw, 240px)); width: 54px; height: 54px; background: #b8231f;
+    color: #f8f3e8; font-family: "Ma Shan Zheng", serif; font-size: 34px; display: grid; place-items: center; border-radius: 6px; transform: rotate(-4deg); }
+  #overlay .sub { position: absolute; top: 12%; left: 10%; max-width: 360px; font-family: Georgia, serif; font-style: italic; font-size: 18px; line-height: 1.7; }
+  #overlay .sub b { font-style: normal; letter-spacing: 3px; font-size: 26px; display: block; margin-bottom: 8px; }
+  #overlay .start { position: absolute; bottom: 7%; width: 100%; text-align: center; font-family: "Ma Shan Zheng", serif; font-size: 30px;
+    animation: breathe 1.6s infinite alternate ease-in-out; }
+  @media (max-width: 700px) {
+    #overlay .sub { left: 6%; top: 8%; max-width: 52%; font-size: 14px; line-height: 1.5; }
+    #overlay .sub b { font-size: 20px; }
+    #overlay .title { right: 6%; top: 8%; }
+    #overlay .seal { display: none; }
+    #overlay .start { font-size: 22px; }
+  }
+  @keyframes breathe { from { opacity: .35; } to { opacity: 1; } }
+
+  a.back { position: fixed; top: 12px; left: 12px; z-index: 20; color: #222; background: rgba(255,255,255,.75);
+    border: 1px solid #999; padding: 4px 10px; font-size: 14px; text-decoration: none; }
+  a.back:hover { background: #fff; }
+  #hud { position: fixed; left: 12px; bottom: 12px; color: #222; background: rgba(255,255,255,.7); border: 1px solid #999;
+    padding: 8px 12px; font-size: 13px; line-height: 1.5; pointer-events: none; }
+  #hud .on { color: #c00; font-weight: bold; }
+  /* touch controls — only shown once the page knows it's on a touch screen */
+  #stick, #touchBtns { display: none; }
+  body.touch #stick { display: block; position: fixed; left: calc(70px + env(safe-area-inset-left)); bottom: calc(70px + env(safe-area-inset-bottom));
+    width: 110px; height: 110px; transform: translate(-50%, 50%); border-radius: 50%; pointer-events: none; z-index: 5;
+    background: rgba(255,255,255,.18); border: 2px solid rgba(30,30,30,.35); opacity: .55; }
+  body.touch #stick.active { bottom: auto; transform: translate(-50%, -50%); opacity: 1; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; transform: translate(-50%, -50%); border-radius: 50%;
+    background: rgba(255,255,255,.85); border: 2px solid #333; }
+  body.touch #touchBtns { display: grid; position: fixed; right: calc(14px + env(safe-area-inset-right)); bottom: calc(14px + env(safe-area-inset-bottom));
+    grid-template-columns: auto auto; gap: 12px; align-items: end; z-index: 5; }
+  #touchBtns button { touch-action: none; border: 2px solid #333; background: rgba(255,255,255,.8); color: #222; border-radius: 50%;
+    font: 700 15px Calibri, "Segoe UI", sans-serif; padding: 0; -webkit-tap-highlight-color: transparent; }
+  #touchBtns button.down { background: #ffd36b; transform: scale(.94); }
+  #btnJump { width: 86px; height: 86px; grid-row: span 2; }
+  #btnMoo { width: 62px; height: 62px; }
+  #btnPpt { width: 46px; height: 46px; font-size: 11px !important; justify-self: center; }
+  #btnPpt.on { background: #c33; color: #fff; }
+  body.touch #hud { left: auto; right: 12px; bottom: auto; top: 12px; font-size: 11px; max-width: 60vw; text-align: right; }
+
+  #moo { position: fixed; pointer-events: none; font: 900 34px "Comic Sans MS", cursive; color: #fff;
+    -webkit-text-stroke: 2px #222; opacity: 0; transform: translate(-50%, -100%); white-space: nowrap; }
+
+  /* region names arrive like a 2003 PowerPoint slide */
+  #card { position: fixed; top: 9%; left: 50%; transform: translateX(-50%); pointer-events: none; text-align: center; opacity: 0; }
+  #card span { font: 900 clamp(32px, 6vw, 64px) Impact, "Arial Black", sans-serif; letter-spacing: 2px;
+    background: linear-gradient(180deg, #fff6a8 0%, #ffb000 45%, #d84800 55%, #ffd36b 100%); -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-stroke: 1.5px #5a1a00; filter: drop-shadow(4px 4px 0 rgba(0,0,0,.35)); }
+  #card.show { animation: flyIn 3.6s ease-out forwards; }
+  @keyframes flyIn {
+    0% { opacity: 1; transform: translate(-260%, 0) rotate(-12deg); }
+    18% { opacity: 1; transform: translate(-50%, 0) rotate(0); }
+    80% { opacity: 1; transform: translate(-50%, 0) rotate(0); }
+    100% { opacity: 0; transform: translate(-50%, 0) scale(1.4) rotate(6deg); }
+  }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<a class="back" href="../index.html">← Back</a>
+<div id="overlay">
+  <svg viewBox="0 0 1000 500" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="m1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a9a96" stop-opacity=".55"/><stop offset="1" stop-color="#f4eee2" stop-opacity="0"/></linearGradient>
+      <linearGradient id="m2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4a48" stop-opacity=".8"/><stop offset="1" stop-color="#efe7d6" stop-opacity="0"/></linearGradient>
+      <linearGradient id="m3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#151515" stop-opacity=".95"/><stop offset=".8" stop-color="#e9dfc9" stop-opacity="0"/></linearGradient>
+    </defs>
+    <path fill="url(#m1)" d="M0 260 C80 180 140 120 210 170 C260 100 320 60 380 150 C440 110 500 90 560 160 C640 70 720 120 780 170 C840 120 920 140 1000 200 L1000 500 L0 500Z"/>
+    <path fill="url(#m2)" d="M0 330 C60 260 120 250 170 300 C230 210 300 190 350 280 C420 230 470 260 520 310 C600 220 660 200 720 290 C800 240 880 270 1000 300 L1000 500 L0 500Z"/>
+    <path fill="url(#m3)" d="M0 420 C90 340 150 330 220 390 C300 300 380 310 430 380 C520 340 600 360 660 410 C760 330 860 350 1000 400 L1000 500 L0 500Z"/>
+  </svg>
+  <div class="sub"><b>NIU LAI</b>A newborn calf dreams of a skylark, a leopard named Bao La, wolves, the desert, a machine, and a hidden valley where the herd still waits.</div>
+  <div class="seal">牛</div>
+  <div class="title">牛来</div>
+  <div class="start">— 点击开始 · click to begin —</div>
+</div>
+<div id="hud"></div>
+<div id="moo">MOOO!</div>
+<div id="stick"><div id="knob"></div></div>
+<div id="touchBtns">
+  <button id="btnPpt" aria-label="Toggle PowerPoint stutter mode">PPT</button>
+  <button id="btnJump" aria-label="Jump">JUMP</button>
+  <button id="btnMoo" aria-label="Moo">MOO</button>
+</div>
+<div id="card"><span></span></div>
+
+<script type="module" src="../js/niu-lai-world.js"></script>
+</body>
+</html>
