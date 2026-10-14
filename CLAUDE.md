@@ -21,6 +21,9 @@ docs/
     color-palette.js
     pattern-generator.js
   vietnamese-learning-plan.md  # content/planning notes for the learning tool
+  blog/
+    index.html             # blog listing page
+    <slug>.html            # one static post per file, no JS needed
 ```
 
 ## Conventions
@@ -30,3 +33,4 @@ docs/
 - **No build toolchain** — edit files directly; GitHub Actions deploys `docs/` to Pages on push to `main`.
 - Adding a new tool: create `docs/tools/<name>.html`, `docs/js/<name>.js`, and add a list item to `docs/index.html`.
 - Keep each tool dependency-free or CDN-only; no npm installs.
+- **Blog posts** live in `docs/blog/` as one static `<slug>.html` per post (kebab-case filename, no matching JS file needed since posts are static content). Each post keeps simple front-matter-style metadata (title, date, tags) rendered at the top of the page, follows the same Simple.css + inline `<style>` convention as tools, and is linked from both `docs/blog/index.html` (the listing) and the "Blog" section in `docs/index.html`.

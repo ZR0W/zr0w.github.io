@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Laptop Broke Its Hinge, So Now It's a Server – Blog</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <style>
+        a.back { margin-bottom: 1rem; display: inline-block; }
+        .post-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem;
+            margin: -0.5rem 0 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted, #666);
+        }
+        .post-date { font-variant-numeric: tabular-nums; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0; padding: 0; }
+        .tag-list li {
+            font-size: 0.78rem;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            background: #eee;
+            color: #333;
+        }
+        article h2 { margin-top: 2rem; }
+        article hr { margin: 2rem 0; border: none; border-top: 1px solid #ddd; }
+        article table { width: 100%; }
+        .task-list { list-style: none; padding-left: 0; }
+        .task-list li { margin-bottom: 0.35rem; }
+        .task-list input[type="checkbox"] { margin-right: 0.5rem; }
+    </style>
+</head>
+<body>
+    <a class="back" href="index.html">← Back to blog</a>
+
+    <article>
+        <header>
+            <h1>My Laptop Broke Its Hinge, So Now It's a Server</h1>
+            <div class="post-meta">
+                <span class="post-date">2026-10-14</span>
+                <ul class="tag-list">
+                    <li>homelab</li>
+                    <li>linux</li>
+                    <li>ubuntu</li>
+                    <li>ssh</li>
+                    <li>self-hosting</li>
+                </ul>
+            </div>
+        </header>
+
+        <p>My Lenovo IdeaPad 5 (15ITL05) broke its screen hinge. It still boots and runs fine, but the lid flops around like it's had a long day. I could pay to fix it, or I could turn it into a headless home server that never needs to open its lid again.</p>
+
+        <p>Meet <strong>zombieboi</strong>: dead on the outside, alive on the inside. 🧟</p>
+
+        <p>This post covers what I did in one late-night session (midnight is when all good infrastructure decisions get made), what went wrong, and the commands I want to remember.</p>
+
+        <hr>
+
+        <h2>Part 1: Autopsy of the hinge</h2>
+
+        <p>This model has a well-known weak spot. The hinge stiffens over time, and eventually opening the lid rips the hinge's brass screw inserts straight out of the plastic lid. Lenovo forum threads are full of people with the same problem.</p>
+
+        <p>Useful things I found:</p>
+
+        <ul>
+            <li><strong>Lenovo's Hardware Maintenance Manual (HMM)</strong> for "IdeaPad 5 (15", 05)" has the full teardown procedure, including hinge removal. It's on iFixit.</li>
+            <li><strong>Replacement hinge set (L+R):</strong> part <code>5H50S28942</code>, about $15–25 from third-party sellers.</li>
+            <li><strong>Hinge covers:</strong> part <code>5CB0Z70212</code>.</li>
+            <li><strong>Fix options, depending on the damage:</strong> new hinges if just the hinge failed; epoxy (e.g. J-B Weld PlasticWeld, applied in layers) if the inserts pulled out but the plastic is intact; a whole new lid if the plastic is shredded.</li>
+            <li><strong>Lesson:</strong> stop opening and closing a laptop with a broken hinge. Every cycle makes the damage worse.</li>
+        </ul>
+
+        <p>I decided the lid can just stay closed forever instead. Problem solved. Sort of.</p>
+
+        <hr>
+
+        <h2>Part 2: Rescue the files first</h2>
+
+        <p>Before wiping anything, I backed up the files to my main PC over Wi-Fi using <strong>LocalSend</strong>: a free app, installed on both machines, and they find each other automatically on the same network. Much nicer than wrestling with Windows file sharing.</p>
+
+        <p>Things people forget to back up: browser bookmarks and passwords, Desktop and Downloads, game saves hiding in <code>AppData</code>, and license keys.</p>
+
+        <hr>
+
+        <h2>Part 3: Installing Ubuntu Server</h2>
+
+        <h3>Making the installer</h3>
+        <ul>
+            <li>Downloaded <strong>Ubuntu Server 26.04.1 LTS</strong> (amd64) from ubuntu.com.</li>
+            <li>Flashed it to an <strong>SD card</strong> with Rufus, because I didn't have a USB stick handy.</li>
+        </ul>
+
+        <h3>Booting it</h3>
+        <ul>
+            <li><strong>F12</strong> at power-on opens the boot menu. The <strong>Novo pinhole button</strong> on the side is the backup plan.</li>
+            <li>Fun discovery: the SD card showed up as <strong>"Linpus Lite (Generic-SD/MMC/MS PRO)"</strong>. Linpus is an old Linux distro, and Lenovo's firmware apparently labels a lot of Linux boot media with that name. The internal SSD showed as "Windows Boot Manager (UMIS …)". The good news: this laptop's built-in SD reader <em>is</em> bootable, which isn't true of every laptop.</li>
+        </ul>
+
+        <h3>The installer choices</h3>
+        <ul>
+            <li><strong>Ubuntu Server</strong> (not "minimized", which strips tools meant for humans and is aimed at cloud images).</li>
+            <li><strong>Use an entire disk</strong> on the internal NVMe SSD, with LVM. <strong>Careful:</strong> the SD card shows up as a disk too (<code>mmcblk0</code>), so you must pick the right one.</li>
+            <li><strong>No disk encryption.</strong> A headless server can't type its own passphrase at boot.</li>
+            <li><strong>Tick "Install OpenSSH server"</strong>, or you're plugging a keyboard into a broken laptop forever.</li>
+            <li>The "Your name" field turned out to be essentially useless: it's a leftover from shared university machines, stored in <code>/etc/passwd</code>. I didn't give it my real name.</li>
+        </ul>
+
+        <h3>The Wi-Fi boss fight 🥊</h3>
+
+        <p>The installer's Wi-Fi setup sat on "applying changes" forever, then scanning failed with:</p>
+
+        <pre><code>scan failed: error triggering scan failed -100</code></pre>
+
+        <p><strong>The fix: phone USB tethering.</strong> I plugged my phone in, turned on USB tethering (which only works once the laptop is actually running, so turn it on <em>after</em> booting the installer), and a new <code>usb0</code> interface appeared. I set it to DHCP, disabled the stuck Wi-Fi interface, and the install went through over the phone's data.</p>
+
+        <p>Then I set up the real Wi-Fi after installing, with netplan.</p>
+
+        <hr>
+
+        <h2>Part 4: Wi-Fi with netplan</h2>
+
+        <p>Netplan files live in <code>/etc/netplan/</code>. The installer left <code>00-installer-config.yaml</code>, and I added <code>60-wifi.yaml</code>:</p>
+
+        <pre><code>network:
+  version: 2
+  wifis:
+    wlp0s20f3:
+      dhcp4: true
+      access-points:
+        "MyNetworkName":
+          password: "not-telling-you"</code></pre>
+
+        <pre><code>sudo chmod 600 /etc/netplan/60-wifi.yaml   # it holds a password, so lock it down
+sudo netplan apply
+ip a show wlp0s20f3                        # look for "state UP" and an inet address</code></pre>
+
+        <p><strong>Lesson:</strong> make sure you're using the real <strong>SSID</strong>, not a saved profile name. Windows keeps old profile names around after you rename your network. To see what's actually being broadcast:</p>
+
+        <pre><code>netsh wlan show networks</code></pre>
+
+        <p>(It needs location permission on newer Windows 11, for some reason.)</p>
+
+        <hr>
+
+        <h2>Part 5: Turning a laptop into a server</h2>
+
+        <h3>Don't sleep when the lid closes</h3>
+
+        <p>The lid has a magnet sensor. A floppy broken lid will trigger it and put the server to sleep. In <code>/etc/systemd/logind.conf</code>:</p>
+
+        <pre><code>HandleLidSwitch=ignore
+HandleLidSwitchExternalPower=ignore
+HandleLidSwitchDocked=ignore</code></pre>
+
+        <pre><code>sudo systemctl restart systemd-logind</code></pre>
+
+        <h3>Save the battery</h3>
+
+        <p>Plugged in 24/7, a battery slowly cooks and swells. Lenovo's conservation mode caps the charge at about 60%:</p>
+
+        <pre><code>echo 1 | sudo tee /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode</code></pre>
+
+        <p>The bonus is that the battery doubles as a free UPS for short power cuts.</p>
+
+        <h3>Firewall</h3>
+
+        <pre><code>sudo ufw allow OpenSSH   # ALWAYS allow this first, or you lock yourself out
+sudo ufw enable
+sudo ufw status</code></pre>
+
+        <p>Everything incoming is blocked except what you explicitly allow. Future services each get their own <code>ufw allow</code>.</p>
+
+        <hr>
+
+        <h2>Part 6: SSH</h2>
+
+        <h3>Key-based login from Windows</h3>
+
+        <pre><code>ssh-keygen -t ed25519 -C "my-pc"
+# Windows has no ssh-copy-id, so:
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh me@zombieboi "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"</code></pre>
+
+        <p>Turn on <code>ssh-agent</code> (as Administrator) so you don't type the key passphrase every time:</p>
+
+        <pre><code>Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent
+ssh-add $env:USERPROFILE\.ssh\id_ed25519</code></pre>
+
+        <p>And an SSH config file (<code>~/.ssh/config</code>), so <code>ssh zombieboi</code> just works. VS Code's Remote - SSH extension reads the same file:</p>
+
+        <pre><code>Host zombieboi
+    HostName &lt;server-ip&gt;
+    User me
+    IdentityFile ~/.ssh/id_ed25519
+    ServerAliveInterval 60</code></pre>
+
+        <h3>The sshd_config.d gotcha 🪤</h3>
+
+        <p>I put this in <code>/etc/ssh/sshd_config.d/hardening.conf</code>:</p>
+
+        <pre><code>PasswordAuthentication no
+PermitRootLogin no</code></pre>
+
+        <p>Then I checked what sshd <em>actually</em> uses:</p>
+
+        <pre><code>sudo sshd -T | grep -E 'passwordauthentication|permitrootlogin'</code></pre>
+
+        <p>It still said <code>passwordauthentication yes</code>. 🤨</p>
+
+        <p><strong>Why:</strong> for most options, sshd keeps the <strong>first</strong> value it reads, and the files in <code>sshd_config.d/</code> load <strong>alphabetically</strong>. Another file sorted earlier was setting <code>yes</code>, and it won. To find the culprit:</p>
+
+        <pre><code>sudo grep -ri passwordauthentication /etc/ssh/sshd_config /etc/ssh/sshd_config.d/</code></pre>
+
+        <p><strong>Lesson:</strong> never trust a config file; trust <code>sshd -T</code>.</p>
+
+        <p>In the end I decided to keep password login <strong>on</strong>. The server is only reachable on my home network, and I want to be able to log in from any device. Root login stays off. The trade-off rule: <strong>never port-forward SSH to the internet.</strong> If I want remote access, I'll use Tailscale, a private network between my own devices with no open ports.</p>
+
+        <hr>
+
+        <h2>What I learned</h2>
+
+        <ol>
+            <li><strong>Back up first, wipe second.</strong> Obviously. But actually do it.</li>
+            <li><strong>Laptop firmware has opinions.</strong> Boot menus mislabel things (hi, Linpus), and built-in SD readers may or may not be bootable.</li>
+            <li><strong>Installers are fragile; phones are great.</strong> USB tethering is a fantastic escape hatch when Wi-Fi refuses to work.</li>
+            <li><strong>The installer isn't the only time you can configure things.</strong> Getting through the install, then fixing Wi-Fi from a real shell with real error messages, was much easier.</li>
+            <li><strong>Config precedence is a trap.</strong> Netplan merges files (later files win); sshd takes the first value it sees (earlier files win). Always check the <em>effective</em> config.</li>
+            <li><strong>"Best practice" depends on your threat model.</strong> Key-only SSH matters on the internet; on a home LAN, password login plus no port-forwarding is a reasonable choice.</li>
+            <li><strong>Laptops make surprisingly good servers.</strong> They're low power, have a built-in UPS, a built-in screen for emergencies, and they're already paid for.</li>
+        </ol>
+
+        <hr>
+
+        <h2>Cheat sheet: commands I used today</h2>
+
+        <table>
+            <thead>
+                <tr><th scope="col">What</th><th scope="col">Command</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Show network interfaces and IPs</td><td><code>ip a</code></td></tr>
+                <tr><td>Show one interface</td><td><code>ip a show wlp0s20f3</code></td></tr>
+                <tr><td>Apply netplan config</td><td><code>sudo netplan apply</code></td></tr>
+                <tr><td>Debug netplan</td><td><code>sudo netplan --debug apply</code></td></tr>
+                <tr><td>Check Wi-Fi block status</td><td><code>rfkill list</code> / <code>sudo rfkill unblock all</code></td></tr>
+                <tr><td>Scan Wi-Fi from Linux</td><td><code>sudo iw dev wlp0s20f3 scan | grep SSID</code></td></tr>
+                <tr><td>Test connectivity</td><td><code>ping -c 4 8.8.8.8</code></td></tr>
+                <tr><td>Update everything</td><td><code>sudo apt update &amp;&amp; sudo apt full-upgrade -y</code></td></tr>
+                <tr><td>Grow root to the full disk (LVM)</td><td><code>sudo lvextend -l +100%FREE -r /dev/ubuntu-vg/ubuntu-lv</code></td></tr>
+                <tr><td>Check disk space</td><td><code>df -h</code></td></tr>
+                <tr><td>Set timezone</td><td><code>sudo timedatectl set-timezone America/New_York</code></td></tr>
+                <tr><td>Effective sshd settings</td><td><code>sudo sshd -T</code></td></tr>
+                <tr><td>Restart SSH</td><td><code>sudo systemctl restart ssh</code></td></tr>
+                <tr><td>Firewall status</td><td><code>sudo ufw status verbose</code></td></tr>
+                <tr><td>Wipe an SSD instantly (⚠️ irreversible)</td><td><code>blkdiscard /dev/nvme0n1</code></td></tr>
+                <tr><td>See Wi-Fi networks (Windows)</td><td><code>netsh wlan show networks</code></td></tr>
+                <tr><td>Current Wi-Fi details (Windows)</td><td><code>netsh wlan show interfaces</code></td></tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>Best practices going forward</h2>
+
+        <ul>
+            <li><strong>Update regularly.</strong> <code>unattended-upgrades</code> handles security patches automatically; run a full upgrade now and then.</li>
+            <li><strong>Allow before you enable.</strong> For any firewall rule or SSH change, keep your current session open and test in a new one before logging out.</li>
+            <li><strong>Use <code>tmux</code> for long jobs</strong>, so a dropped connection doesn't kill your work.</li>
+            <li><strong>Back up your SSH private key</strong> somewhere safe, and never copy it to servers. Only the <code>.pub</code> goes out.</li>
+            <li><strong>One key per device</strong>, so you can revoke a single device later.</li>
+            <li><strong>Don't expose ports to the internet.</strong> Use Tailscale (or similar) for remote access.</li>
+            <li><strong>Check temperatures</strong> occasionally (<code>sensors</code>), and keep the vents clear, especially with the lid closed.</li>
+            <li><strong>Write things down.</strong> Hence this post.</li>
+        </ul>
+
+        <hr>
+
+        <h2>Commands I need to learn next</h2>
+
+        <h3>Services and logs</h3>
+        <ul>
+            <li><code>systemctl status|start|stop|restart|enable &lt;service&gt;</code>: manage services.</li>
+            <li><code>systemctl list-units --type=service --state=running</code>: see what's running.</li>
+            <li><code>journalctl -u &lt;service&gt; -f</code>: follow a service's logs live.</li>
+            <li><code>journalctl -p err -b</code>: errors since the last boot.</li>
+        </ul>
+
+        <h3>System health</h3>
+        <ul>
+            <li><code>htop</code>: interactive process viewer.</li>
+            <li><code>free -h</code>: memory usage.</li>
+            <li><code>du -sh * | sort -h</code>: what's eating my disk.</li>
+            <li><code>sensors</code>: CPU temperatures.</li>
+            <li><code>uptime</code>: how long since it last fell over.</li>
+        </ul>
+
+        <h3>Networking</h3>
+        <ul>
+            <li><code>ss -tulpn</code>: which ports are open and which program owns them. Essential when adding services.</li>
+            <li><code>curl -I http://localhost:&lt;port&gt;</code>: is my service actually responding?</li>
+        </ul>
+
+        <h3>Files and permissions</h3>
+        <ul>
+            <li><code>chmod</code> / <code>chown</code>: permissions and ownership; most "it doesn't work" bugs start here.</li>
+            <li><code>rsync -avh src/ dest/</code>: copying and backups done right.</li>
+            <li><code>scp file zombieboi:~/</code>: quick copy to and from the PC.</li>
+            <li><code>find</code>, <code>grep -r</code>: finding things.</li>
+        </ul>
+
+        <h3>Sessions and automation</h3>
+        <ul>
+            <li><code>tmux</code> (<code>tmux attach</code> to reconnect).</li>
+            <li><code>crontab -e</code> or systemd timers: scheduled jobs, for backups for example.</li>
+        </ul>
+
+        <h3>Containers (next adventure)</h3>
+        <ul>
+            <li><code>docker ps</code>, <code>docker compose up -d</code>, <code>docker compose logs -f</code>, <code>docker compose pull</code>.</li>
+        </ul>
+
+        <hr>
+
+        <h2>What's next for zombieboi</h2>
+
+        <ul class="task-list">
+            <li><input type="checkbox" disabled> Tailscale for access outside home</li>
+            <li><input type="checkbox" disabled> Docker + Docker Compose</li>
+            <li><input type="checkbox" disabled> A file share (Samba) or Nextcloud</li>
+            <li><input type="checkbox" disabled> Maybe Jellyfin, Pi-hole or Home Assistant</li>
+            <li><input type="checkbox" disabled> Automated backups (because Part 2 taught me nothing if I don't)</li>
+            <li><input type="checkbox" disabled> Maybe one day actually fix the hinge 🔧</li>
+        </ul>
+
+        <p>zombieboi lives. 🧟‍♂️</p>
+    </article>
+
+    <p><a class="back" href="index.html">← Back to blog</a></p>
+</body>
+</html>

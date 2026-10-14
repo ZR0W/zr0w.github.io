@@ -8,3 +8,8 @@
 - **[Random color palette picker](docs/tools/color-palette.html)** – Generate palettes, keep favorite colors, re-gen or override with hex picker.
 - **[Seamless quadrant pattern generator](docs/tools/pattern-generator.html)** – Draw in four quadrants, shuffle for seamless tiling, view/export infinite pannable pattern; undo/redo, guide toggle.
 - **[Vietnamese learning](docs/tools/vietnamese-learning.html)** – Native numbers 1–10; click a word for in-page pronunciation (hotlinked Omniglot audio).
+- **[US airline hub map](docs/tools/us-airline-hub-map.html)** – Every hub, operating base, and focus city for the nine major US carriers on one map; toggle carriers on/off, hover for details.
+
+### Blog
+
+- **[Diary / blog](docs/blog/index.html)** – Posts about homelab projects and other things worth writing down.

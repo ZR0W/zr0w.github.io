@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <style>
+        a.back { margin-bottom: 1rem; display: inline-block; }
+        .post-list { list-style: none; padding: 0; }
+        .post-list li {
+            padding: 0.9rem 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .post-list li:last-child { border-bottom: none; }
+        .post-list .post-title { font-size: 1.1rem; font-weight: bold; }
+        .post-list .post-date {
+            display: block;
+            font-size: 0.85rem;
+            color: #777;
+            margin: 0.15rem 0 0.35rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .post-list .tag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0.35rem 0 0; padding: 0; }
+        .post-list .tag-list li {
+            padding: 0.15rem 0.55rem;
+            border: none;
+            border-radius: 999px;
+            background: #eee;
+            color: #333;
+            font-size: 0.78rem;
+        }
+    </style>
+</head>
+<body>
+    <a class="back" href="../index.html">← Back</a>
+    <h1>Blog</h1>
+    <p>Diary entries about projects, homelab tinkering, and whatever else is worth writing down.</p>
+
+    <ul class="post-list">
+        <li>
+            <a class="post-title" href="laptop-hinge-server.html">My Laptop Broke Its Hinge, So Now It's a Server</a>
+            <span class="post-date">2026-10-14</span>
+            <p>A Lenovo with a dead hinge becomes zombieboi, a headless Ubuntu Server box: hinge autopsy, a Wi-Fi install that only worked over phone tethering, netplan, lid/battery/firewall setup, and an SSH config-precedence gotcha.</p>
+            <ul class="tag-list">
+                <li>homelab</li>
+                <li>linux</li>
+                <li>ubuntu</li>
+                <li>ssh</li>
+                <li>self-hosting</li>
+            </ul>
+        </li>
+    </ul>
+</body>
+</html>
