@@ -51,6 +51,8 @@
             </div>
         </header>
 
+        <p><em>Disclaimer! Below is entirely AI-generated, read at your own expense. ⚠️</em></p>
+
         <p>My Lenovo IdeaPad 5 (15ITL05) broke its screen hinge. It still boots and runs fine, but the lid flops around like it's had a long day. I could pay to fix it, or I could turn it into a headless home server that never needs to open its lid again.</p>
 
         <p>Meet <strong>zombieboi</strong>: dead on the outside, alive on the inside. 🧟</p>
@@ -157,6 +159,21 @@ HandleLidSwitchDocked=ignore</code></pre>
 
         <pre><code>sudo systemctl restart systemd-logind</code></pre>
 
+        <h3>Turn the brightness down</h3>
+
+        <p>With <code>HandleLidSwitch=ignore</code> set, the display stays lit at full brightness under a closed, broken lid forever — which is just free heat for a server nobody is looking at. First, just try the brightness keys (the F-keys with sun icons, possibly with <code>Fn</code>). They sometimes still work without a desktop, because the kernel handles them itself.</p>
+
+        <p>If they don't, set the brightness directly:</p>
+
+        <pre><code>ls /sys/class/backlight/</code></pre>
+
+        <p>You'll most likely see <code>intel_backlight</code>. Then:</p>
+
+        <pre><code>cat /sys/class/backlight/intel_backlight/max_brightness
+echo 500 | sudo tee /sys/class/backlight/intel_backlight/brightness</code></pre>
+
+        <p>Pick a value between 0 and the max shown (try about 5–10% of the max). <code>0</code> turns the backlight fully off on most laptops. Ubuntu remembers the last brightness across reboots automatically, so you only need to do this once.</p>
+
         <h3>Save the battery</h3>
 
         <p>Plugged in 24/7, a battery slowly cooks and swells. Lenovo's conservation mode caps the charge at about 60%:</p>
@@ -251,6 +268,8 @@ PermitRootLogin no</code></pre>
                 <tr><td>Update everything</td><td><code>sudo apt update &amp;&amp; sudo apt full-upgrade -y</code></td></tr>
                 <tr><td>Grow root to the full disk (LVM)</td><td><code>sudo lvextend -l +100%FREE -r /dev/ubuntu-vg/ubuntu-lv</code></td></tr>
                 <tr><td>Check disk space</td><td><code>df -h</code></td></tr>
+                <tr><td>List backlight devices</td><td><code>ls /sys/class/backlight/</code></td></tr>
+                <tr><td>Set screen brightness</td><td><code>echo 500 | sudo tee /sys/class/backlight/intel_backlight/brightness</code></td></tr>
                 <tr><td>Set timezone</td><td><code>sudo timedatectl set-timezone America/New_York</code></td></tr>
                 <tr><td>Effective sshd settings</td><td><code>sudo sshd -T</code></td></tr>
                 <tr><td>Restart SSH</td><td><code>sudo systemctl restart ssh</code></td></tr>
