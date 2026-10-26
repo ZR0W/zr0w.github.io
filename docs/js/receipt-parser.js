@@ -10,6 +10,7 @@
   var participants = [];
   var participantIdCounter = 0;
   var touchSelectedItem = null; // { itemId, source: 'pool'|'lane', participantId? }
+  var previewTimer = null;
 
   var PERSON_COLORS = [
     '#4a8bd4', '#d95f5f', '#4fa86a', '#d98930',
@@ -17,7 +18,7 @@
   ];
 
   // ─── DOM refs ─────────────────────────────────────────────────────────────
-  var receiptUrlEl, fetchBtnEl, receiptTextEl, parseTextBtnEl;
+  var receiptTextEl, parseTextBtnEl, previewEl;
   var inputNoticeEl, resultsSectionEl, receiptMetaEl, summaryInlineEl;
   var poolCardsEl, trashZoneEl, lanesEl, addPersonBtnEl;
 
@@ -39,58 +40,6 @@
   function setNotice(el, type, msg) {
     el.className = 'notice' + (type ? ' ' + type : '');
     el.textContent = msg || '';
-  }
-
-  // ─── Parse Toast __NEXT_DATA__ (from fetched HTML) ───────────────────────
-
-  function parseNextDataHtml(html) {
-    var match = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (!match) return null;
-    var data;
-    try { data = JSON.parse(match[1]); } catch (e) { return null; }
-    return extractFromNextData(data);
-  }
-
-  function extractFromNextData(data) {
-    var pp = data && data.props && data.props.pageProps;
-    if (!pp) return null;
-
-    var rc = pp.receipt || pp.checkReceipt || pp.receiptData || pp.data || pp;
-    var ck = rc.check || rc.order || rc;
-    var sels = ck.selections || ck.lineItems || ck.items || ck.orderItems;
-    if (!Array.isArray(sels) || !sels.length) return null;
-
-    var parsedItems = [];
-    for (var i = 0; i < sels.length; i++) {
-      var s = sels[i];
-      if (s.parentItemId || s.parentId) continue;
-      var name = s.displayName || s.name || s.itemName || ('Item ' + (parsedItems.length + 1));
-      var qty = parseInt(s.quantity || s.qty || 1, 10) || 1;
-      var price = parseMoney(s.price || s.unitPrice || s.preDiscountPrice || s.totalPrice || 0);
-      if (qty > 1 && s.totalPrice == null && (s.price != null || s.unitPrice != null)) {
-        price = price * qty;
-      }
-      if (price > 0) parsedItems.push({ name: name, price: price, qty: qty });
-    }
-
-    if (!parsedItems.length) return null;
-
-    var subtotal = parseMoney(ck.subtotal || ck.subTotal || rc.subtotal || 0);
-    var tax = parseMoney(ck.taxAmount || ck.tax || ck.taxTotal || rc.taxAmount || rc.tax || 0);
-    var tip = parseMoney(ck.gratuity || ck.tip || ck.tipAmount || rc.gratuity || rc.tip || 0);
-    var total = parseMoney(ck.totalAmount || ck.total || rc.totalAmount || rc.total || 0);
-    if (total <= 0 && subtotal > 0) total = subtotal + tax + tip;
-
-    var restaurantObj = rc.restaurant || rc.restaurantInfo || rc.venue || {};
-    var restaurant = restaurantObj.name || restaurantObj.restaurantName || '';
-
-    var closedAt = ck.closedDate || ck.closedAt || ck.paidDate || rc.closedDate || '';
-    var date = '';
-    if (closedAt) {
-      try { date = new Date(closedAt).toLocaleDateString(); } catch (e) {}
-    }
-
-    return { restaurant: restaurant, date: date, subtotal: subtotal, tax: tax, tip: tip, total: total, items: parsedItems };
   }
 
   // ─── Parse bookmarklet payload from URL hash ─────────────────────────────
@@ -133,7 +82,15 @@
     return null;
   }
 
-  // ─── Parse pasted / innerText receipt ────────────────────────────────────
+  // ─── Parse pasted / typed receipt text ───────────────────────────────────
+
+  var tabPriceRe   = /^(.+?)\t\$?(\d+(?:\.\d{1,2})?)\s*$/;
+  var spacePriceRe = /^(.*\S)\s{2,}\$?(\d+(?:\.\d{1,2})?)\s*$/;
+  var commaPriceRe = /^([^,]+),\s*\$?(\d+(?:\.\d{1,2})?)\s*$/;
+  var priceOnlyRe  = /^\$?(\d+(?:\.\d{1,2})?)\s*$/;
+  var qtyPrefixRe  = /^(\d+)\s*[x×]?\s+(.+)/i;
+  var skipRe       = /^(server|table|guests?|ordered|opened|closed|check\s*#|order\s*#|card|auth|approval|receipt|thank|phone|www\.|http|input\s+type|visa|mastercard|amex|discover|powered|©|never\s+miss|sign\s+up|download|application|device|authorization|transaction|time\s*$)/i;
+  var summaryRe    = /^(subtotal|sub\s+total|tax|tip|gratuity|total|amount\s+due)/i;
 
   function parseReceiptText(text) {
     var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); });
@@ -141,21 +98,15 @@
     var subtotal = 0, tax = 0, tip = 0, total = 0;
     var restaurant = '';
 
-    var tabPriceRe   = /^(.+?)\t\$?(\d+\.\d{2})\s*$/;
-    var spacePriceRe = /^(.*\S)\s{2,}\$?(\d+\.\d{2})\s*$/;
-    var priceOnlyRe  = /^\$?(\d+\.\d{2})\s*$/;
-    var qtyPrefixRe  = /^(\d+)\s+(.+)/;
-    var skipRe       = /^(server|table|guests?|ordered|opened|closed|check\s*#|order\s*#|card|auth|approval|receipt|thank|phone|www\.|http|input\s+type|visa|mastercard|amex|discover|powered|©|never\s+miss|sign\s+up|download|application|device|authorization|transaction|time\s*$)/i;
-
     var firstReal = true;
     var pendingName = null;
 
     function classify(name, price) {
       var lc = name.toLowerCase().trim();
-      if (/subtotal/.test(lc) && !/^total/.test(lc)) { if (!subtotal) subtotal = price; return; }
-      if (/\btax\b/.test(lc))                          { if (!tax)      tax      = price; return; }
-      if (/tip|gratuity/.test(lc))                     { if (!tip)      tip      = price; return; }
-      if (/^total/.test(lc))                            { if (price > total) total = price; return; }
+      if (/^(subtotal|sub\s+total)/.test(lc))          { if (!subtotal) subtotal = price; return; }
+      if (/\btax\b/.test(lc))                           { if (!tax)      tax      = price; return; }
+      if (/tip|gratuity/.test(lc))                      { if (!tip)      tip      = price; return; }
+      if (/^(total|amount\s+due)/.test(lc))             { if (price > total) total = price; return; }
       if (skipRe.test(name)) return;
       var m = name.match(qtyPrefixRe);
       var qty      = m ? parseInt(m[1], 10) : 1;
@@ -177,6 +128,13 @@
       var pm = line.match(priceOnlyRe);
       if (pm && pendingName) {
         classify(pendingName, parseMoney(pm[1]));
+        pendingName = null;
+        continue;
+      }
+
+      var cm = line.match(commaPriceRe);
+      if (cm) {
+        classify(cm[1].trim(), parseMoney(cm[2]));
         pendingName = null;
         continue;
       }
@@ -206,74 +164,168 @@
     return { restaurant: restaurant, date: '', subtotal: subtotal, tax: tax, tip: tip, total: total, items: parsedItems };
   }
 
-  // ─── CORS-proxy fetch ─────────────────────────────────────────────────────
+  // ─── Line-by-line classifier for live preview ─────────────────────────────
 
-  function fetchReceipt(url) {
-    setNotice(inputNoticeEl, 'info', 'Fetching receipt…');
-    fetchBtnEl.disabled = true;
+  function classifyLines(lines) {
+    var result = [];
+    var pendingName = null;
+    var pendingIdx = -1;
+    var firstReal = true;
 
-    var proxies = [
-      {
-        build:   function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); },
-        extract: function (r) { return r.text(); }
-      },
-      {
-        build:   function (u) { return 'https://api.allorigins.win/get?url=' + encodeURIComponent(u); },
-        extract: function (r) {
-          return r.json().then(function (j) {
-            if (!j.contents) throw new Error('empty');
-            return j.contents;
-          });
-        }
-      },
-      {
-        build:   function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); },
-        extract: function (r) { return r.text(); }
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+
+      if (!line) {
+        pendingName = null;
+        pendingIdx = -1;
+        result.push({ type: 'empty' });
+        continue;
       }
-    ];
 
-    tryProxy(url, proxies, 0);
-  }
+      if (firstReal && !skipRe.test(line) && !priceOnlyRe.test(line)) {
+        firstReal = false;
+        result.push({ type: 'restaurant', line: line });
+        continue;
+      }
+      firstReal = false;
 
-  function tryProxy(url, proxies, idx) {
-    if (idx >= proxies.length) {
-      fetchBtnEl.disabled = false;
-      setNotice(inputNoticeEl, 'error',
-        'Toast blocks automated requests. Use the bookmarklet (drag it to your bookmarks bar), or paste the receipt text below.');
-      document.getElementById('textDetails').open = true;
-      return;
+      var pm = line.match(priceOnlyRe);
+      if (pm && pendingName !== null) {
+        var price = parseMoney(pm[1]);
+        var lc = pendingName.toLowerCase().trim();
+        var t = summaryRe.test(lc) ? 'summary' : (skipRe.test(pendingName) ? 'skipped' : 'item');
+        var name = pendingName;
+        var m = !summaryRe.test(lc) ? name.match(qtyPrefixRe) : null;
+        var displayName = m ? m[1] + '× ' + m[2].trim() : name;
+        result[pendingIdx] = { type: t, line: name, name: displayName, price: price };
+        pendingName = null;
+        pendingIdx = -1;
+        result.push({ type: 'hidden' }); // price-only line consumed
+        continue;
+      }
+
+      var cm = line.match(commaPriceRe);
+      if (cm) {
+        var rawName = cm[1].trim();
+        var price = parseMoney(cm[2]);
+        var lc = rawName.toLowerCase();
+        var t = summaryRe.test(lc) ? 'summary' : 'item';
+        var m = t === 'item' ? rawName.match(qtyPrefixRe) : null;
+        var displayName = m ? m[1] + '× ' + m[2].trim() : rawName;
+        result.push({ type: t, line: line, name: displayName, price: price });
+        pendingName = null;
+        pendingIdx = -1;
+        continue;
+      }
+
+      var tm = line.match(tabPriceRe);
+      if (tm) {
+        var rawName = tm[1].trim();
+        var price = parseMoney(tm[2]);
+        var lc = rawName.toLowerCase();
+        var t = summaryRe.test(lc) ? 'summary' : 'item';
+        var m = t === 'item' ? rawName.match(qtyPrefixRe) : null;
+        var displayName = m ? m[1] + '× ' + m[2].trim() : rawName;
+        result.push({ type: t, line: line, name: displayName, price: price });
+        pendingName = null;
+        pendingIdx = -1;
+        continue;
+      }
+
+      var sm = line.match(spacePriceRe);
+      if (sm) {
+        var rawName = sm[1].trim();
+        var price = parseMoney(sm[2]);
+        var lc = rawName.toLowerCase();
+        var t = summaryRe.test(lc) ? 'summary' : 'item';
+        var m = t === 'item' ? rawName.match(qtyPrefixRe) : null;
+        var displayName = m ? m[1] + '× ' + m[2].trim() : rawName;
+        result.push({ type: t, line: line, name: displayName, price: price });
+        pendingName = null;
+        pendingIdx = -1;
+        continue;
+      }
+
+      if (!skipRe.test(line) && !pm && line.length < 80) {
+        pendingName = line;
+        pendingIdx = result.length;
+        result.push({ type: 'pending', line: line });
+      } else {
+        result.push({ type: 'skipped', line: line });
+        pendingName = null;
+        pendingIdx = -1;
+      }
     }
 
-    var proxy = proxies[idx];
-    fetch(proxy.build(url))
-      .then(function (resp) {
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        return proxy.extract(resp);
-      })
-      .then(function (html) {
-        fetchBtnEl.disabled = false;
-        var parsed = parseNextDataHtml(html);
-        if (parsed && parsed.items.length) {
-          setNotice(inputNoticeEl, '', '');
-          renderReceipt(parsed);
-          return;
-        }
-        var bodyText = html.replace(/<script[\s\S]*?<\/script>/gi, ' ')
-                          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-                          .replace(/<[^>]+>/g, ' ')
-                          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-                          .replace(/&nbsp;/g, ' ').replace(/\s+/g, '\n');
-        parsed = parseReceiptText(bodyText);
-        if (parsed && parsed.items.length) {
-          setNotice(inputNoticeEl, 'warn', 'Fetched page but no structured data found — parsed visible text instead. Check items for accuracy.');
-          renderReceipt(parsed);
-          return;
-        }
-        setNotice(inputNoticeEl, 'error',
-          'Fetched the page but could not extract receipt items. Use the bookmarklet or paste the text below.');
-        document.getElementById('textDetails').open = true;
-      })
-      .catch(function () { tryProxy(url, proxies, idx + 1); });
+    // Unresolved pending name = skipped
+    if (pendingName !== null && pendingIdx >= 0) {
+      result[pendingIdx] = { type: 'skipped', line: pendingName };
+    }
+
+    return result;
+  }
+
+  // ─── Live preview ─────────────────────────────────────────────────────────
+
+  function renderPreview(text) {
+    if (!previewEl) return;
+    text = text || '';
+    if (!text.trim()) { previewEl.innerHTML = ''; return; }
+
+    var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); });
+    var classified = classifyLines(lines);
+
+    var itemCount = 0, foodTotal = 0;
+    for (var i = 0; i < classified.length; i++) {
+      if (classified[i].type === 'item') { itemCount++; foodTotal += classified[i].price; }
+    }
+
+    var headerLabel = itemCount + ' item' + (itemCount !== 1 ? 's' : '');
+    if (foodTotal > 0) headerLabel += ' · ' + formatMoney(foodTotal) + ' food';
+
+    var html = '<div class="preview-header"><strong>' + escapeHtml(headerLabel) + '</strong></div>';
+
+    for (var i = 0; i < classified.length; i++) {
+      var c = classified[i];
+      if (c.type === 'empty' || c.type === 'hidden') continue;
+
+      if (c.type === 'item') {
+        html += '<div class="preview-row item">' +
+          '<span class="pr-icon">✓</span>' +
+          '<span class="pr-name">' + escapeHtml(c.name) + '</span>' +
+          '<span class="pr-price">' + formatMoney(c.price) + '</span>' +
+          '</div>';
+      } else if (c.type === 'summary') {
+        html += '<div class="preview-row summary">' +
+          '<span class="pr-icon">─</span>' +
+          '<span class="pr-name">' + escapeHtml(c.name) + '</span>' +
+          '<span class="pr-price">' + formatMoney(c.price) + '</span>' +
+          '</div>';
+      } else if (c.type === 'restaurant') {
+        html += '<div class="preview-row summary">' +
+          '<span class="pr-icon">🍽</span>' +
+          '<span class="pr-name">' + escapeHtml(c.line) + '</span>' +
+          '</div>';
+      } else if (c.type === 'pending') {
+        html += '<div class="preview-row skipped">' +
+          '<span class="pr-icon">?</span>' +
+          '<span class="pr-name">' + escapeHtml(c.line) + '</span>' +
+          '</div>';
+      } else {
+        // skipped
+        html += '<div class="preview-row skipped">' +
+          '<span class="pr-icon">?</span>' +
+          '<span class="pr-name">' + escapeHtml(c.line) + '</span>' +
+          '</div>';
+      }
+    }
+
+    previewEl.innerHTML = html;
+  }
+
+  function schedulePreview(text) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () { renderPreview(text); }, 300);
   }
 
   // ─── Participants ─────────────────────────────────────────────────────────
@@ -838,10 +890,9 @@
   // ─── Init ─────────────────────────────────────────────────────────────────
 
   function init() {
-    receiptUrlEl     = document.getElementById('receiptUrl');
-    fetchBtnEl       = document.getElementById('fetchBtn');
     receiptTextEl    = document.getElementById('receiptText');
     parseTextBtnEl   = document.getElementById('parseTextBtn');
+    previewEl        = document.getElementById('preview');
     inputNoticeEl    = document.getElementById('inputNotice');
     resultsSectionEl = document.getElementById('resultsSection');
     receiptMetaEl    = document.getElementById('receiptMeta');
@@ -855,18 +906,14 @@
 
     setupTrashZone();
 
-    fetchBtnEl.addEventListener('click', function () {
-      var url = receiptUrlEl.value.trim();
-      if (!url) { setNotice(inputNoticeEl, 'error', 'Enter a receipt URL first.'); return; }
-      fetchReceipt(url);
-    });
-    receiptUrlEl.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') fetchBtnEl.click();
+    // Live preview on input
+    receiptTextEl.addEventListener('input', function () {
+      schedulePreview(receiptTextEl.value);
     });
 
     parseTextBtnEl.addEventListener('click', function () {
       var text = receiptTextEl.value.trim();
-      if (!text) { setNotice(inputNoticeEl, 'error', 'Paste receipt text first.'); return; }
+      if (!text) { setNotice(inputNoticeEl, 'error', 'Paste or type receipt text first.'); return; }
       var parsed = parseReceiptText(text);
       if (!parsed || !parsed.items.length) {
         setNotice(inputNoticeEl, 'error', 'No items found. Make sure the text includes item names and prices.');
