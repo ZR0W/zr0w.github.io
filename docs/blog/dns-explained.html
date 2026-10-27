@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Actually Happens When I Google Something (DNS, Explained) – Blog</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <style>
+        a.back { margin-bottom: 1rem; display: inline-block; }
+        .post-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem;
+            margin: -0.5rem 0 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-light, #666);
+        }
+        .post-date { font-variant-numeric: tabular-nums; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0; padding: 0; }
+        .tag-list li {
+            font-size: 0.78rem;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            background: #eee;
+            color: #333;
+        }
+        article h2 { margin-top: 2.5rem; }
+        article hr { margin: 2rem 0; border: none; border-top: 1px solid var(--border, #ddd); }
+        article table { width: 100%; }
+        .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-wrap table { margin-bottom: 0.5rem; }
+        .toc ol { margin: 0.3rem 0 0; }
+        .callout {
+            border-left: 4px solid var(--accent, #0d47a1);
+            background: var(--accent-bg, #f5f7ff);
+            padding: 0.7rem 1rem;
+            margin: 1.2rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .callout p:last-child { margin-bottom: 0; }
+
+        /* ---------- Diagram palette (light / dark) ---------- */
+        :root {
+            --dx-query: #1565c0;
+            --dx-answer: #2e7d32;
+            --dx-blocked: #c62828;
+            --dx-conn: #6a1b9a;
+            --dx-local: #6d6d6d;
+            --dx-lane-bg: #f3f5f9;
+            --dx-lane-stroke: #b8c0cc;
+            --dx-ink: #222;
+            --dx-panel: #ffffff;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --dx-query: #64b5f6;
+                --dx-answer: #81c784;
+                --dx-blocked: #ef9a9a;
+                --dx-conn: #ce93d8;
+                --dx-local: #aaaaaa;
+                --dx-lane-bg: #2a2d33;
+                --dx-lane-stroke: #50565f;
+                --dx-ink: #e8e8e8;
+                --dx-panel: #1e2024;
+            }
+            .tag-list li { background: #333; color: #ddd; }
+        }
+
+        /* ---------- Interactive diagrams ---------- */
+        .dx {
+            margin: 1.5rem 0;
+            border: 1px solid var(--border, #ddd);
+            border-radius: 8px;
+            padding: 0.75rem;
+            background: var(--dx-panel);
+        }
+        .dx-title { font-weight: bold; margin: 0 0 0.5rem; }
+        .dx-scenarios { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem; }
+        .dx-scenarios button {
+            margin: 0;
+            padding: 0.3rem 0.65rem;
+            font-size: 0.85rem;
+            background: transparent;
+            color: var(--text, #222);
+            border: 1px solid var(--border, #ccc);
+        }
+        .dx-scenarios button[aria-pressed="true"] {
+            background: var(--accent, #0d47a1);
+            color: var(--accent-text, #fff);
+            border-color: var(--accent, #0d47a1);
+        }
+        .dx-stage {
+            position: relative;
+            border: 1px solid var(--border, #ddd);
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--bg, #fff);
+        }
+        .dx-stage svg {
+            display: block;
+            width: 100%;
+            height: auto;
+            cursor: grab;
+            touch-action: pan-y;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .dx-stage svg.dragging { cursor: grabbing; }
+        .dx-zoombar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 4px;
+            margin-bottom: 0.35rem;
+        }
+        .dx-zoombar button {
+            margin: 0;
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            font-size: 1rem;
+            line-height: 1;
+            opacity: 0.88;
+        }
+        .dx-hint { font-size: 0.78rem; color: var(--text-light, #777); margin: 0.35rem 0 0; }
+        .dx-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.6rem;
+        }
+        .dx-controls button { margin: 0; padding: 0.35rem 0.75rem; font-size: 0.9rem; }
+        .dx-count { font-variant-numeric: tabular-nums; font-size: 0.9rem; color: var(--text-light, #666); margin-left: auto; }
+        .dx-caption {
+            margin-top: 0.6rem;
+            padding: 0.65rem 0.85rem;
+            border-radius: 6px;
+            background: var(--accent-bg, #f5f7ff);
+            min-height: 4.2rem;
+        }
+        .dx-caption strong { display: block; margin-bottom: 0.2rem; }
+        .dx-caption p { margin: 0; }
+        .dx details { margin-top: 0.6rem; }
+        .dx details ol { font-size: 0.9rem; }
+        .dx-legend { display: flex; flex-wrap: wrap; gap: 0.8rem; font-size: 0.8rem; margin-top: 0.5rem; }
+        .dx-legend span::before {
+            content: "";
+            display: inline-block;
+            width: 1.4rem;
+            height: 3px;
+            margin-right: 0.35rem;
+            vertical-align: middle;
+            background: currentColor;
+        }
+
+        /* SVG content */
+        .dx svg text { fill: var(--dx-ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+        .dx .lane-head rect { fill: var(--dx-lane-bg); stroke: var(--dx-lane-stroke); }
+        .dx .lane-head text { font-weight: 600; font-size: 13px; }
+        .dx .lane-head .sub { font-weight: 400; font-size: 11px; opacity: 0.75; }
+        .dx .lane-line { stroke: var(--dx-lane-stroke); stroke-dasharray: 4 5; }
+        .dx .step { transition: opacity 0.25s; }
+        .dx .step.future { opacity: 0.12; }
+        .dx .step.done { opacity: 0.55; }
+        .dx .step.active { opacity: 1; }
+        .dx .step line, .dx .step path { stroke-width: 2; fill: none; }
+        .dx .step.active line, .dx .step.active path { stroke-width: 3.2; }
+        .dx .step rect.note { stroke-width: 1.5; }
+        .dx .step.active rect.note { stroke-width: 2.5; }
+        .dx .step .label { font-size: 12px; }
+        .dx .step.active .label { font-weight: 700; }
+        .dx .step .num { font-size: 10px; font-weight: 700; fill: var(--dx-panel); }
+        .dx .k-query { color: var(--dx-query); }
+        .dx .k-answer { color: var(--dx-answer); }
+        .dx .k-blocked { color: var(--dx-blocked); }
+        .dx .k-conn { color: var(--dx-conn); }
+        .dx .k-local { color: var(--dx-local); }
+        .dx .step line, .dx .step path, .dx .step rect.note { stroke: currentColor; }
+        .dx .step rect.note { fill: var(--dx-panel); }
+        .dx .step circle.badge { fill: currentColor; }
+        .dx .step polygon { fill: currentColor; }
+
+        /* Hierarchy tree */
+        .tree .node rect { fill: var(--dx-lane-bg); stroke: var(--dx-lane-stroke); stroke-width: 1.5; }
+        .tree .node text { font-size: 13px; }
+        .tree .node.hi rect { stroke: var(--dx-query); stroke-width: 3; }
+        .tree .edge { stroke: var(--dx-lane-stroke); stroke-width: 1.5; }
+        .tree .edge.hi { stroke: var(--dx-query); stroke-width: 3; }
+        .tree .lvl { font-size: 11px; opacity: 0.7; }
+
+        /* Fullscreen overlay */
+        .dx-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: var(--bg, #fff);
+            display: flex;
+            flex-direction: column;
+            padding: 0.75rem;
+        }
+        .dx-overlay .dx { flex: 1; display: flex; flex-direction: column; margin: 0; overflow: auto; min-height: 0; }
+        .dx-overlay .dx > * { flex-shrink: 0; }
+        .dx-overlay .dx > .dx-stage { flex: 1 1 auto; display: flex; min-height: 220px; }
+        .dx-overlay .dx-stage svg { height: 100%; touch-action: none; }
+        .dx-overlay-bar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .dx-overlay-bar strong { flex: 1; }
+        .dx-overlay-bar button { margin: 0; }
+        body.dx-noscroll { overflow: hidden; }
+
+        .seen-table td:first-child { white-space: nowrap; font-weight: 600; }
+        .yes { color: var(--dx-answer); font-weight: 600; }
+        .no { color: var(--dx-local); }
+        .partial { color: var(--dx-conn); font-weight: 600; }
+    </style>
+</head>
+<body>
+    <a class="back" href="index.html">← Back to blog</a>
+
+    <article>
+        <header>
+            <h1>What Actually Happens When I Google Something (DNS, Explained)</h1>
+            <div class="post-meta">
+                <span class="post-date">2026-10-23</span>
+                <ul class="tag-list">
+                    <li>homelab</li>
+                    <li>dns</li>
+                    <li>networking</li>
+                    <li>pi-hole</li>
+                    <li>explainer</li>
+                </ul>
+            </div>
+        </header>
+
+        <p><em>Disclaimer! Below is entirely AI-generated, read at your own expense. ⚠️</em></p>
+
+        <p>After turning zombieboi into a Pi-hole DNS server (<a href="laptop-hinge-server.html">previous post</a>), Google started telling me <strong>"SafeSearch is locked to filter by your network"</strong>. I never turned SafeSearch on, and Firefox didn't either. Explaining <em>why</em> turned out to require explaining DNS from the ground up, so this post does exactly that: first the general picture, then how phones and browsers use it, then what my own setup does to a single Google search.</p>
+
+        <p>The diagrams are interactive. Use <strong>Next</strong> to step through them, pick a <strong>scenario</strong> where offered, and zoom: <strong>+ / −</strong> buttons, pinch, <kbd>Ctrl</kbd> + scroll, drag to pan, or <strong>⛶</strong> for full screen.</p>
+
+        <nav class="toc">
+            <strong>Contents</strong>
+            <ol>
+                <li><a href="#what-is-dns">What DNS is</a></li>
+                <li><a href="#resolution">How a name gets resolved</a></li>
+                <li><a href="#devices">How devices, phones and browsers use DNS</a></li>
+                <li><a href="#visit">Visiting a website: DNS is only step one</a></li>
+                <li><a href="#my-setup">My setup: Pi-hole + Cloudflare for Families</a></li>
+                <li><a href="#safesearch">Why Google locked SafeSearch</a></li>
+                <li><a href="#who-sees">Who can see what</a></li>
+                <li><a href="#try-it">Try it yourself</a></li>
+            </ol>
+        </nav>
+
+        <hr>
+
+        <!-- ================================================================ -->
+        <h2 id="what-is-dns">1. What DNS is</h2>
+
+        <p>Computers connect to <strong>IP addresses</strong> (like <code>203.0.113.10</code> or <code>2001:db8::10</code>). People type <strong>names</strong> (like <code>www.example.com</code>). The <strong>Domain Name System</strong> is the internet-wide, distributed database that turns one into the other. Every time you open a site, an app syncs, or a smart TV checks for updates, a DNS lookup almost certainly happened first.</p>
+
+        <p>A DNS answer is made of <strong>records</strong>. Each has a <em>type</em>, a value, and a <em>TTL</em> (time to live: how many seconds anyone may cache it). The ones that matter here:</p>
+
+        <div class="table-wrap"><table>
+            <thead>
+                <tr><th>Type</th><th>Question it answers</th><th>Example</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>A</code></td><td>IPv4 address for this name?</td><td><code>www.example.com → 203.0.113.10</code></td></tr>
+                <tr><td><code>AAAA</code></td><td>IPv6 address for this name?</td><td><code>www.example.com → 2001:db8::10</code></td></tr>
+                <tr><td><code>CNAME</code></td><td>Is this name an alias for another name?</td><td><code>www.shop.example → shop.cdn.example</code></td></tr>
+                <tr><td><code>NS</code></td><td>Which servers are in charge of this domain?</td><td><code>example.com → ns1.dns-host.example</code></td></tr>
+                <tr><td><code>HTTPS</code></td><td>How should I connect (HTTP/3? keys)?</td><td>Asked by modern browsers alongside A/AAAA</td></tr>
+                <tr><td><code>MX</code>, <code>TXT</code>, <code>PTR</code></td><td>Mail server, free text, reverse lookup (IP → name)</td><td>Email, verification, logs</td></tr>
+            </tbody>
+        </table></div>
+
+        <p><small>(Addresses in this post are illustrative, taken from ranges reserved for documentation.)</small></p>
+
+        <p>The database is split into a <strong>hierarchy</strong>, read right to left. Nobody holds all of it; each level only knows who is in charge of the next level down.</p>
+
+        <figure class="dx" data-zoom="tree" aria-label="DNS hierarchy diagram">
+            <p class="dx-title">The DNS tree</p>
+            <div class="dx-stage">
+                <svg class="tree" viewBox="0 0 910 330" role="img" aria-label="DNS hierarchy: the root, then top-level domains com, org and arpa, then domains google.com, example.com and wikipedia.org, then hostnames www.google.com, forcesafesearch.google.com and www.example.com">
+                    <text class="lvl" x="14" y="47">Root</text>
+                    <text class="lvl" x="14" y="127">Top-level</text>
+                    <text class="lvl" x="14" y="207">Domains</text>
+                    <text class="lvl" x="14" y="287">Hostnames</text>
+                    <line class="edge hi" x1="500" y1="58" x2="390" y2="108"/>
+                    <line class="edge" x1="500" y1="58" x2="690" y2="108"/>
+                    <line class="edge" x1="500" y1="58" x2="830" y2="108"/>
+                    <line class="edge hi" x1="390" y1="138" x2="290" y2="188"/>
+                    <line class="edge" x1="390" y1="138" x2="520" y2="188"/>
+                    <line class="edge" x1="690" y1="138" x2="690" y2="188"/>
+                    <line class="edge hi" x1="290" y1="218" x2="195" y2="268"/>
+                    <line class="edge" x1="290" y1="218" x2="395" y2="268"/>
+                    <line class="edge" x1="520" y1="218" x2="605" y2="268"/>
+                    <g class="node hi"><rect x="445" y="28" width="110" height="30" rx="6"/><text x="500" y="48" text-anchor="middle">. (root)</text></g>
+                    <g class="node hi"><rect x="345" y="108" width="90" height="30" rx="6"/><text x="390" y="128" text-anchor="middle">com</text></g>
+                    <g class="node"><rect x="645" y="108" width="90" height="30" rx="6"/><text x="690" y="128" text-anchor="middle">org</text></g>
+                    <g class="node"><rect x="785" y="108" width="90" height="30" rx="6"/><text x="830" y="128" text-anchor="middle">arpa</text></g>
+                    <g class="node hi"><rect x="230" y="188" width="120" height="30" rx="6"/><text x="290" y="208" text-anchor="middle">google.com</text></g>
+                    <g class="node"><rect x="460" y="188" width="120" height="30" rx="6"/><text x="520" y="208" text-anchor="middle">example.com</text></g>
+                    <g class="node"><rect x="627.5" y="188" width="125" height="30" rx="6"/><text x="690" y="208" text-anchor="middle">wikipedia.org</text></g>
+                    <g class="node hi"><rect x="120" y="268" width="150" height="30" rx="6"/><text x="195" y="288" text-anchor="middle">www.google.com</text></g>
+                    <g class="node"><rect x="290" y="268" width="210" height="30" rx="6"/><text x="395" y="288" text-anchor="middle">forcesafesearch.google.com</text></g>
+                    <g class="node"><rect x="530" y="268" width="150" height="30" rx="6"/><text x="605" y="288" text-anchor="middle">www.example.com</text></g>
+                    </svg>
+            </div>
+            <p class="dx-hint">Highlighted: the path for <code>www.google.com</code>. Its sibling <code>forcesafesearch.google.com</code> shows up again later.</p>
+        </figure>
+
+        <!-- ================================================================ -->
+        <h2 id="resolution">2. How a name gets resolved</h2>
+
+        <p>There are two kinds of DNS software in this story:</p>
+        <ul>
+            <li>A <strong>stub resolver</strong>: the small client built into your OS (and some apps). It doesn't know how to walk the tree; it just asks one configured server and waits.</li>
+            <li>A <strong>recursive resolver</strong>: a server that does the walking: root → top-level domain → the domain's own nameservers, caching everything along the way. Your ISP runs one; so do Cloudflare (<code>1.1.1.1</code>), Google (<code>8.8.8.8</code>), and Quad9 (<code>9.9.9.9</code>).</li>
+        </ul>
+        <p>Step through a cold lookup (nothing cached anywhere), then switch to the cached scenario to see why the internet isn't drowning in DNS traffic.</p>
+
+        <figure class="dx" data-diagram="recursion" aria-label="Recursive resolution diagram"></figure>
+
+        <div class="callout">
+            <p><strong>Caching is the whole trick.</strong> Root and <code>.com</code> referrals are cached for days, popular answers for minutes. Your browser, your OS, and every resolver along the way keep their own cache, so most lookups are answered in a millisecond without leaving your house. It's also why a DNS change can take a while to "show up".</p>
+        </div>
+
+        <!-- ================================================================ -->
+        <h2 id="devices">3. How devices, phones and browsers use DNS</h2>
+
+        <p>Normally you never pick a DNS server. When a device joins a network, the router tells it which one to use: <strong>DHCP</strong> hands out a DNS address for IPv4, and IPv6 <strong>router advertisements</strong> (or DHCPv6) do the same for IPv6. Most home routers point you at themselves, and they forward to the ISP.</p>
+
+        <p>That default is increasingly <em>not</em> what actually happens, because several layers can override it:</p>
+        <ul>
+            <li><strong>Manual DNS</strong> on a device's network adapter replaces what the router handed out (what I do on my PC).</li>
+            <li><strong>Browsers</strong> can skip the OS entirely with <strong>DNS over HTTPS</strong> (DoH): Firefox calls it TRR, Chrome calls it Secure DNS. Lookups go encrypted straight to a provider like Cloudflare.</li>
+            <li><strong>Android "Private DNS"</strong> uses <strong>DNS over TLS</strong> (port 853) to a provider you choose, ignoring the Wi-Fi's DNS.</li>
+            <li><strong>iPhone iCloud Private Relay</strong> sends Safari's traffic, DNS included, through Apple's relays.</li>
+            <li><strong>Some apps and smart TVs</strong> hard-code a public resolver like <code>8.8.8.8</code> and ignore your settings completely.</li>
+        </ul>
+
+        <figure class="dx" data-diagram="devices" aria-label="How devices choose a DNS server"></figure>
+
+        <p>This matters for anything that filters by DNS (parental controls, Pi-hole, school networks): <strong>a filter only sees the lookups that are actually sent to it</strong>. Every encrypted or hard-coded path above walks straight past it.</p>
+
+        <!-- ================================================================ -->
+        <h2 id="visit">4. Visiting a website: DNS is only step one</h2>
+
+        <p>Once the browser has an address, four more things happen before you see a page:</p>
+        <ol>
+            <li><strong>Connect.</strong> TCP (or QUIC for HTTP/3) to the address on port <code>443</code>. On the way out, the home router swaps your private address for your home's single public IP (<strong>NAT</strong>).</li>
+            <li><strong>TLS handshake.</strong> The browser names the site it wants (<strong>SNI</strong>, sent unencrypted in most cases). The server answers with a <strong>certificate</strong> for that name, signed by an authority the browser trusts. If it checks out, everything after this is encrypted.</li>
+            <li><strong>HTTP request.</strong> Only now does the path (<code>/search?q=cats</code>) leave the browser, inside the encrypted tunnel.</li>
+            <li><strong>Sub-resources.</strong> The page asks for scripts, images, fonts, ads and analytics from <em>other</em> hostnames, and <strong>every new hostname starts its own DNS lookup</strong>. A typical page triggers dozens.</li>
+        </ol>
+        <p>The certificate step is why DNS can redirect you but can't impersonate a site: a server that isn't really <code>www.google.com</code> can't present a valid certificate for it, and the browser refuses to continue.</p>
+
+        <!-- ================================================================ -->
+        <h2 id="my-setup">5. My setup: Pi-hole + Cloudflare for Families</h2>
+
+        <p>Here's what my PC's lookups go through now:</p>
+        <ul>
+            <li><strong>Firefox</strong> with DNS over HTTPS <strong>turned off</strong>, so it uses the OS like everything else.</li>
+            <li><strong>Windows</strong>, with the DNS server set manually to <strong>Pi-hole</strong> for both IPv4 and IPv6. The IPv6 part matters: my ISP's router advertises <em>its own</em> IPv6 DNS server, and if I only changed the IPv4 setting, Windows would quietly send some lookups there and skip the Pi-hole.</li>
+            <li><strong>Pi-hole on zombieboi</strong>: checks blocklists (ads, trackers, my own rules), caches, logs every query, and forwards the rest.</li>
+            <li><strong>Cloudflare for Families</strong> (<code>1.1.1.3</code>) as Pi-hole's upstream: a recursive resolver that also blocks malware and adult sites.</li>
+        </ul>
+
+        <p>Pick a scenario. The first one is the question that started this post.</p>
+
+        <figure class="dx" data-diagram="mysetup" aria-label="My setup: step-through scenarios"></figure>
+
+        <div class="callout">
+            <p><strong>Blocked ≠ doesn't exist.</strong> A blocked name comes back as <code>0.0.0.0</code> (and <code>::</code> for IPv6), a deliberate "nowhere". A typo comes back as <strong>NXDOMAIN</strong>, "no such name". Firefox shows similar error pages for both, but they're different answers, and that difference is what lets software tell "blocked on purpose" from "doesn't exist".</p>
+        </div>
+
+        <p>Two things worth noticing:</p>
+        <ul>
+            <li><strong>Who blocked it matters.</strong> Ad domains are stopped by the Pi-hole itself, so Cloudflare never even sees them, and I can allowlist them. Adult sites are stopped by Cloudflare, so the Pi-hole only passes the answer along, and its allowlist can't override it.</li>
+            <li><strong>Blocking happens on my own PC.</strong> Connecting to <code>0.0.0.0</code> fails instantly, locally. No packet ever goes towards the blocked site. That's also why ad blocking is invisible: a blocked ad script just quietly doesn't load.</li>
+        </ul>
+
+        <!-- ================================================================ -->
+        <h2 id="safesearch">6. Why Google locked SafeSearch</h2>
+
+        <p>Google runs two sets of servers for search. The normal ones sit behind <code>www.google.com</code>. Another set sits behind <code>forcesafesearch.google.com</code>, and those <em>always</em> apply SafeSearch. Google publishes this on purpose, so schools and network operators can enforce SafeSearch with nothing but DNS.</p>
+
+        <p>Cloudflare for Families uses it: when asked for <code>www.google.com</code>, it answers with a <strong>CNAME</strong> to <code>forcesafesearch.google.com</code> and that name's address. My browser connects there, still asking for <code>www.google.com</code>, and gets back Google's genuine certificate, so nothing looks wrong. Google sees the connection arrive on its SafeSearch address and locks the setting, which is exactly the message I saw. My account settings can't override it, because the decision is made by <em>where I connected</em>, not <em>who I am</em>.</p>
+
+        <p>So: not Firefox, not "parent mode" detection. Just DNS pointing me at a different door of the same building.</p>
+
+        <!-- ================================================================ -->
+        <h2 id="who-sees">7. Who can see what</h2>
+
+        <div class="table-wrap"><table class="seen-table">
+            <thead>
+                <tr><th>Party</th><th>Hostnames I look up</th><th>Search terms / page content</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>My Pi-hole</td><td class="yes">Yes, all, per device</td><td class="no">No</td><td>The Query Log is my own record of every lookup.</td></tr>
+                <tr><td>Cloudflare</td><td class="partial">Those Pi-hole forwards</td><td class="no">No</td><td>Not the ones Pi-hole blocks or answers from cache.</td></tr>
+                <tr><td>My ISP</td><td class="partial">Yes, mostly</td><td class="no">No</td><td>Pi-hole → Cloudflare is plain DNS, and TLS SNI shows the site name. It also sees which IPs I connect to.</td></tr>
+                <tr><td>Google</td><td class="no">Only its own</td><td class="yes">Yes, for searches</td><td>The encrypted request is decrypted at Google.</td></tr>
+                <tr><td>The browser</td><td class="yes">Yes</td><td class="yes">Yes</td><td>It's doing all of it.</td></tr>
+            </tbody>
+        </table></div>
+
+        <p>HTTPS hides <em>what</em> I do on a site. DNS and SNI still reveal <em>which</em> sites. Encrypting Pi-hole's upstream queries (DNS over HTTPS/TLS from the Pi-hole) would hide them from the ISP too; that's a possible future project.</p>
+
+        <!-- ================================================================ -->
+        <h2 id="try-it">8. Try it yourself</h2>
+
+        <p>On Windows (PowerShell); <code>nslookup</code> works the same on macOS and Linux:</p>
+
+<pre><code>nslookup www.google.com              # through your normal DNS
+nslookup www.google.com 9.9.9.9      # ask Quad9 directly, no family filter
+nslookup www.google.com 1.1.1.3      # ask Cloudflare for Families directly
+nslookup ad.doubleclick.net          # behind a Pi-hole: 0.0.0.0 and ::
+nslookup thisdoesnotexist12345.com   # NXDOMAIN ("Non-existent domain")
+ipconfig /displaydns                 # what Windows has cached
+Clear-DnsClientCache                 # empty Windows' DNS cache</code></pre>
+
+        <p>If the third command mentions <code>forcesafesearch.google.com</code> and the second doesn't, you've just watched the whole mechanism from this post.</p>
+
+        <h3>What I learned</h3>
+        <ol>
+            <li><strong>DNS is a distributed, cached tree.</strong> Most lookups never leave the house.</li>
+            <li><strong>"Which DNS server do I use?" has more answers than it looks:</strong> router defaults, manual settings, browser DoH, phone private DNS, hard-coded apps.</li>
+            <li><strong>DNS can redirect but can't impersonate</strong>, thanks to TLS certificates. That's why DNS can't show a custom block page for HTTPS sites, yet can send you to Google's SafeSearch door.</li>
+            <li><strong>Blocked (0.0.0.0) and nonexistent (NXDOMAIN) are different answers</strong>, and the difference is useful.</li>
+            <li><strong>Encryption hides content, not destinations.</strong></li>
+        </ol>
+
+        <h3>Sources</h3>
+        <ul>
+            <li><a href="https://hn.svelte.dev/item/33733102">Ask HN: How does Cloudflare DNS filter Google results?</a></li>
+            <li><a href="https://cleanbrowsing.org/support/troubleshooting/lock-safesearch">CleanBrowsing: Lock Google SafeSearch</a></li>
+            <li><a href="https://support.google.com/websearch/answer/186669">Google: Lock SafeSearch for accounts, devices &amp; networks you manage</a></li>
+        </ul>
+    </article>
+
+    <p><a class="back" href="index.html">← Back to blog</a></p>
+
+    <script src="../js/dns-explained.js"></script>
+</body>
+</html>
