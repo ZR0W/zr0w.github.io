@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilebound Wiki – Webtools</title>
+<!-- Help/wiki for tools/tilebound.html. Prose rules are written here; every stat table (heroes, enemies,
+     items, terrain, difficulty) is rendered by js/tilebound-wiki.js from js/tilebound-data.js, the same
+     data the game uses, so numbers can't drift. Same dark theme as the game, no Simple.css. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;600&family=Grenze+Gotisch:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #1a1814; --panel: #24211c; --panel2: #2c2822; --line: #3d372e; --text: #ece4d3; --muted: #a39a88;
+    --gold: #f0a93b; --hero: #4f8be3; --enemy: #e8743a; --cream: #f1e6cf; --heal: #5cc77a; --elite: #c04ad8; }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 Barlow, system-ui, sans-serif; }
+  a { color: var(--gold); }
+  .display { font-family: "Grenze Gotisch", Georgia, serif; font-weight: 600; }
+  .caps { font-family: "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+
+  header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: #1a1814ee;
+    border-bottom: 1px solid var(--line); backdrop-filter: blur(4px); flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 30px; color: var(--gold); }
+  header h1 small { font-family: "Barlow Condensed", sans-serif; font-size: 15px; color: var(--muted); letter-spacing: 2px; margin-left: 6px; }
+  header .spacer { flex: 1; }
+  header a.btn { font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: 1.5px; text-transform: uppercase; text-decoration: none;
+    background: var(--gold); color: #2a1d08; padding: 7px 14px; border-radius: 9px; }
+  #q { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 9px; padding: 7px 12px; width: 240px; font: inherit; }
+  #q:focus { outline: 2px solid var(--gold); border-color: transparent; }
+  .back { font-size: 13px; color: var(--muted); text-decoration: none; }
+
+  .layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 20px; }
+  nav { position: sticky; top: 74px; align-self: start; font-size: 14px; }
+  nav b { display: block; color: var(--muted); font: 600 12px "Barlow Condensed", sans-serif; letter-spacing: 1.5px; text-transform: uppercase; margin: 0 0 6px; }
+  nav a { display: block; color: var(--text); text-decoration: none; padding: 3px 8px; border-left: 2px solid var(--line); }
+  nav a:hover { border-color: var(--gold); color: var(--gold); }
+  nav a.sub { padding-left: 18px; font-size: 13px; color: var(--muted); }
+
+  main section { margin-bottom: 36px; }
+  main h2 { font-size: 30px; margin: 0 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  main h3 { font: 700 19px "Barlow Condensed", sans-serif; letter-spacing: .5px; margin: 18px 0 6px; }
+  p.lead { color: var(--muted); margin-top: 0; }
+  code, kbd { font: 13px ui-monospace, Menlo, Consolas, monospace; background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 8px 0; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12px "Barlow Condensed", sans-serif; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  ol.steps { padding-left: 22px; } ol.steps li { margin-bottom: 4px; }
+  .note { border-left: 3px solid var(--gold); background: var(--panel); padding: 8px 12px; border-radius: 0 8px 8px 0; font-size: 14px; color: var(--muted); }
+  .note b { color: var(--text); }
+
+  /* entry cards (wiki infobox style) */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .entry { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; position: relative; }
+  .entry:target { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+  .entry .top { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: start; }
+  .entry .art { width: 56px; height: 56px; border-radius: 9px; background: var(--cream); border: 2.5px solid var(--hero); padding: 4px; }
+  .entry.enemy .art { border-color: var(--enemy); }
+  .entry.elite .art { border-color: var(--elite); background: #efe0f2; }
+  .entry.item .art, .entry.tile .art { background: #2b2620; border: 2px solid var(--gold); }
+  .entry.tile .art { border-color: var(--line); padding: 0; }
+  .entry .art svg { width: 100%; height: 100%; display: block; }
+  .entry h3 { margin: 0; font-size: 21px; line-height: 1.1; }
+  .entry .sub { font-size: 12px; color: var(--muted); }
+  .entry .anchor { position: absolute; top: 10px; right: 12px; color: var(--muted); text-decoration: none; font-size: 13px; }
+  .entry .stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+  .entry .stats span { background: var(--panel2); border-radius: 6px; padding: 2px 8px; font-size: 12.5px; color: var(--muted); }
+  .entry .stats span b { color: var(--text); }
+  .entry p { margin: 6px 0; font-size: 14px; }
+  .entry ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+  .tag { display: inline-block; font: 600 11px "Barlow Condensed", sans-serif; letter-spacing: 1.2px; text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
+    background: var(--panel2); color: var(--muted); margin-left: 6px; vertical-align: middle; }
+  .tag.elite { background: var(--elite); color: #fff; }
+
+  /* attack pattern grid */
+  .pat { display: grid; grid-template-columns: repeat(5, 11px); gap: 2px; }
+  .pat i { width: 11px; height: 11px; border-radius: 2px; background: #3b362e; }
+  .pat i.a { background: var(--hero); } .pat i.h { background: var(--gold); } .pat i.v { background: var(--heal); }
+
+  /* structure mini maps */
+  .map { display: grid; grid-template-columns: repeat(7, 22px); gap: 2px; background: #14120f; padding: 6px; border-radius: 8px; width: max-content; margin-top: 8px; }
+  .map i { width: 22px; height: 22px; border-radius: 4px; background: #26231e; display: block; }
+  .map i svg { width: 100%; height: 100%; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin: 6px 0 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 20px; height: 20px; display: inline-block; }
+  .legend i svg { width: 100%; height: 100%; }
+
+  .hidden { display: none !important; }
+  #nores { color: var(--muted); }
+
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; padding: 14px 16px; }
+    nav { position: static; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+    nav b { width: 100%; } nav a, nav a.sub { border: 0; padding: 2px 0; font-size: 14px; }
+    #q { width: 100%; order: 5; }
+    header h1 small { display: none; }
+    .grid { grid-template-columns: 1fr; }
+    table { display: block; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="../index.html">← Webtools</a>
+  <h1 class="display">Tilebound <small>WIKI</small></h1>
+  <span class="spacer"></span>
+  <input id="q" type="search" placeholder="Search heroes, enemies, rules…" aria-label="Search the wiki">
+  <a class="btn" href="tilebound.html">Play ↗</a>
+</header>
+
+<div class="layout">
+  <nav aria-label="Contents">
+    <b>Contents</b>
+    <a href="#overview">Overview</a>
+    <a href="#controls">Controls</a>
+    <a href="#turn">Turn order</a>
+    <a href="#movement">Movement rules</a>
+    <a href="#heroes">Heroes</a>
+    <a href="#enemies">Bestiary</a>
+    <a class="sub" href="#scaling">Spawning &amp; scaling</a>
+    <a href="#items">Items &amp; interactables</a>
+    <a href="#terrain">Terrain</a>
+    <a class="sub" href="#structures">Structures</a>
+    <a href="#scoring">Scoring</a>
+    <a href="#tips">Tips</a>
+  </nav>
+
+  <main>
+    <p id="nores" class="hidden">No matches. Try a hero name, an enemy, or a rule word like “zone”.</p>
+
+    <section id="overview" data-search>
+      <h2 class="display">Overview</h2>
+      <p>Tilebound is an endless, turn-based dungeon crawl on a grid 7 squares wide. You lead a squad of four heroes upward through
+        procedurally generated rows. Nothing moves until you act; then every piece on screen takes one step by simple rules, like a
+        cellular automaton. The run ends when every hero has fallen.</p>
+      <ul>
+        <li>The view shows <b id="vH">11</b> rows. Your heroes always live in the bottom <b id="vZ">4</b> rows, the gold <b>deployment zone</b>.</li>
+        <li><b>Depth</b> counts how many rows you have advanced. The dungeon's world rows are numbered from the start, so a row
+          numbered <i>N</i> first appears at the top of the screen when depth ≈ <i>N</i> − 10. Unlocks in this wiki are given as rows.</li>
+        <li>Pass <code>?seed=123</code> in the game's URL for a reproducible dungeon.</li>
+      </ul>
+    </section>
+
+    <section id="controls" data-search>
+      <h2 class="display">Controls</h2>
+      <table>
+        <tr><th>Action</th><th>Keyboard</th><th>Mouse / touch</th></tr>
+        <tr><td>Advance</td><td><kbd>W</kbd> or <kbd>↑</kbd></td><td>Forward button</td></tr>
+        <tr><td>Sidestep</td><td><kbd>A</kbd>/<kbd>←</kbd>, <kbd>D</kbd>/<kbd>→</kbd></td><td>Left / Right buttons</td></tr>
+        <tr><td>Hold &amp; strike</td><td><kbd>Space</kbd>, <kbd>S</kbd> or <kbd>↓</kbd></td><td>Hold button</td></tr>
+        <tr><td>Reposition a hero</td><td>—</td><td>Drag a hero onto a gold <b>+</b> square, or tap the hero then tap a square</td></tr>
+        <tr><td>Swap two heroes</td><td>—</td><td>Drop (or tap) one hero onto another</td></tr>
+        <tr><td>See an attack pattern</td><td>—</td><td>Hover a hero or its squad card (tap on mobile)</td></tr>
+        <tr><td>Cancel a selection</td><td><kbd>Esc</kbd></td><td>Tap anywhere else</td></tr>
+        <tr><td>Start / restart</td><td><kbd>Enter</kbd> on the party screen, <kbd>R</kbd> after game over</td><td>Descend buttons</td></tr>
+      </table>
+    </section>
+
+    <section id="turn" data-search>
+      <h2 class="display">Turn order</h2>
+      <p class="lead">One action per turn. Everything after step 1 resolves automatically.</p>
+      <ol class="steps">
+        <li><b>Choose</b> — Forward, Left, Right, Hold, or reposition/swap one hero inside the zone. Repositioning spends the turn.</li>
+        <li><b>Move</b> — heroes that can move do (see <a href="#movement">Movement rules</a>). Stepping onto a chest, potion, shrine or raised spikes resolves now.</li>
+        <li><b>Heroes strike</b> — one hero at a time: the attacker glows in its colour, its skill name pops up and its whole pattern flashes; every enemy in the pattern is hit (the Ranger and Turret hit only the first). Druid and Engineer build here.</li>
+        <li><b>Enemies act</b> — every enemy on screen follows its rule, closest to the squad first, against the live board. Each attack plays on its own. Badges show what each enemy will do next: ↓ ← → ↑ move, <b>!</b> attack, <b>·</b> idle.</li>
+        <li><b>World acts</b> — spike traps toggle, boulders roll, vine walls age.</li>
+      </ol>
+    </section>
+
+    <section id="movement" data-search>
+      <h2 class="display">Movement rules</h2>
+      <p class="lead">The squad moves together, but each hero only moves if its target square is free (or is being vacated by a teammate who moves).</p>
+      <table>
+        <tr><th>Situation</th><th>What happens</th><th class="num">Turn used?</th></tr>
+        <tr><td><b>Left / Right</b>, some heroes blocked (side wall, terrain, enemy, stuck teammate)</td><td>They <b>squish</b>: blocked heroes stay put and jiggle, the rest move.</td><td class="num">yes</td></tr>
+        <tr><td>Left / Right, nobody can move</td><td>Board shakes, nothing moves.</td><td class="num">no</td></tr>
+        <tr><td><b>Forward</b>, a blocked hero is above the bottom row</td><td>It stays behind (and still strikes); the rest advance and the view scrolls.</td><td class="num">yes</td></tr>
+        <tr><td>Forward, a bottom-row hero is held by an <b>enemy</b></td><td>The others step up <i>inside</i> the zone without scrolling, so nobody is lost — only if nobody would leave the top of the zone; otherwise refused.</td><td class="num">yes / no</td></tr>
+        <tr><td>Forward, a bottom-row hero is blocked by <b>terrain</b></td><td>Refused: advancing would scroll that hero off the map.</td><td class="num">no</td></tr>
+        <tr><td>Forward, nobody can move but someone faces an enemy</td><td>Everyone holds position and strikes; enemies act.</td><td class="num">yes</td></tr>
+        <tr><td>Forward, nobody can move, terrain only</td><td>Refused with a shake.</td><td class="num">no</td></tr>
+        <tr><td><b>Hold</b></td><td>Always works: nobody moves, everyone strikes.</td><td class="num">yes</td></tr>
+        <tr><td>Reposition / swap</td><td>Any open zone square without an item. Dropping somewhere invalid cancels.</td><td class="num">yes (cancel: no)</td></tr>
+      </table>
+      <p class="note"><b>Turrets</b> move with the squad but never block a move — a stuck turret is simply left behind. Refused moves never cost a turn, and the status line says why.</p>
+    </section>
+
+    <section id="heroes" data-search>
+      <h2 class="display">Heroes</h2>
+      <p class="lead">Pick 4 on the party screen; pick order sets the starting spots (first two in front). Pattern grids: gold = the hero, blue = squares it strikes, forward is up.</p>
+      <div class="grid" id="heroGrid"></div>
+    </section>
+
+    <section id="enemies" data-search>
+      <h2 class="display">Bestiary</h2>
+      <p class="lead">Enemies attack by stepping into a hero (bump), except the archer, which shoots. All of them avoid walls, items (except spikes), heroes and each other.</p>
+      <div class="grid" id="enemyGrid"></div>
+      <h3 id="scaling">Spawning &amp; scaling</h3>
+      <div id="scalingBox"></div>
+    </section>
+
+    <section id="items" data-search>
+      <h2 class="display">Items &amp; interactables</h2>
+      <p class="lead">At most one random item per generated row, rolled on a free square. Structures can place extra ones.</p>
+      <div class="grid" id="itemGrid"></div>
+    </section>
+
+    <section id="terrain" data-search>
+      <h2 class="display">Terrain</h2>
+      <p class="lead">Walls, rocks and pillars all block heroes and enemies the same way; only the look differs.</p>
+      <div class="legend" id="legend"></div>
+      <h3 id="structures">Structures</h3>
+      <p>Rows are generated one <b>structure</b> at a time, each followed by an empty row. A structure is kept only if every row
+        has an opening at least 2 squares wide (room for the 2×2 golem) and the open squares connect from the row below to its top;
+        otherwise it is re-rolled (an empty row after 6 failures). The first <span id="safeRows">6</span> rows are always empty.
+        Maps below are examples; real ones vary.</p>
+      <div class="grid" id="structGrid"></div>
+    </section>
+
+    <section id="scoring" data-search>
+      <h2 class="display">Scoring</h2>
+      <p><b>Score = depth × <span id="perDepth">10</span> + kill points + gold.</b> Kill points are listed in the <a href="#enemies">Bestiary</a>;
+        chests give <span id="chestGold">25</span> gold. Your best score is kept in this browser.</p>
+    </section>
+
+    <section id="tips" data-search>
+      <h2 class="display">Tips</h2>
+      <ul>
+        <li>Watch the intent badges before you commit: a red <b>!</b> on your hero means it will be hit this turn.</li>
+        <li>Funnel through wall gaps by sidestepping first — squished heroes catch up when the others stop.</li>
+        <li>A hero stuck on the bottom row blocks Forward; reposition it (one turn) or sidestep.</li>
+        <li>The Guardian beside a fragile hero (Mage, Rogue, Bombardier) soaks their hits.</li>
+        <li>Golems can't fit through 1-wide gaps; vines and pillars make good choke points.</li>
+      </ul>
+    </section>
+  </main>
+</div>
+
+<script src="../js/tilebound-data.js"></script>
+<script src="../js/tilebound-wiki.js"></script>
+</body>
+</html>

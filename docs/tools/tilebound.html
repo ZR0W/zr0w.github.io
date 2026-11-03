@@ -236,6 +236,7 @@
   <div class="stat"><small class="caps">Depth</small><b id="hDepth">0</b></div>
   <div class="stat"><small class="caps">Turn</small><b id="hTurn">1</b></div>
   <div class="stat score"><small class="caps">Score</small><b id="hScore">0</b></div>
+  <a class="btn ghost" href="tilebound-wiki.html" target="_blank" rel="noopener" title="Rules, heroes, enemies and terrain" style="text-decoration:none">Wiki</a>
   <button class="btn ghost" id="newRun" title="Start a new run (R)">New run</button>
 </header>
 
@@ -310,13 +311,15 @@
 <div id="party"><div class="pbox">
   <h2 class="display">Choose Your Party</h2>
   <p class="psub">Pick <b>4 heroes</b>. Pick order sets the starting spots: the first two start in front.
-    The grid on each card is its attack pattern (gold = the hero, blue = where it strikes, forward is up).</p>
+    The grid on each card is its attack pattern (gold = the hero, blue = where it strikes, forward is up).
+    New here? Read the <a href="tilebound-wiki.html" target="_blank" rel="noopener">wiki</a>.</p>
   <div id="pgrid"></div>
   <div class="pbar"><span id="pCount" class="caps">0 / 4 chosen</span>
     <button class="btn ghost" id="pDefault">Classic four</button>
     <button class="btn" id="pGo" disabled>Descend ↓</button></div>
 </div></div>
 
+<script src="../js/tilebound-data.js"></script>
 <script src="../js/tilebound.js"></script>
 </body>
 </html>
