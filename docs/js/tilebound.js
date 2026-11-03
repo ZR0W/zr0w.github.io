@@ -329,13 +329,15 @@
     const [dx, dr] = DIRV[dir];
     if (dir !== 'hold') {
       const memo = new Map();
+      const cause = new Map(); // stuck hero → what ultimately blocks it: 'enemy' or 'terrain'
       const can = (h) => {
         if (memo.has(h)) return memo.get(h);
         memo.set(h, false);
         const nx = h.x + dx, nr = h.r + dr;
         const it = itemAt(nx, nr);
         let ok = !solid(nx, nr) && !enemyAt(nx, nr) && !(it && it.type === 'boulder');
-        if (ok) { const o = heroAt(nx, nr); if (o) ok = can(o); }
+        if (!ok) cause.set(h, enemyAt(nx, nr) ? 'enemy' : 'terrain');
+        else { const o = heroAt(nx, nr); if (o) { ok = can(o); if (!ok) cause.set(h, cause.get(o)); } }
         memo.set(h, ok);
         return ok;
       };
@@ -344,7 +346,15 @@
       // A stuck hero may stay behind while the rest move, unless it is at the border of the world:
       // on the bottom row when advancing (it would scroll off the map) or pressed against a side wall.
       const pinned = stuck.filter((h) => (dir === 'up' ? h.r === S.camR : terrain(h.x + dx, h.r) === 'edge'));
-      if (pinned.length || stuck.length === all.length) return refuse(dir, stuck, pinned);
+      const movers = all.filter((h) => !stuck.includes(h));
+      // Held by an enemy on the bottom row: the rest still advance (and the held hero stays and
+      // attacks) if they can do it inside the zone, so the view doesn't scroll and nobody is lost.
+      let note = '';
+      if (dir === 'up' && pinned.length && movers.length && pinned.every((h) => cause.get(h) === 'enemy')) {
+        if (movers.every((h) => h.r + 1 < S.camR + ZONE)) return runTurn(dir, { dx, dr, movers, stuck, noScroll: true });
+        note = 'advancing the others would take them past the deployment zone';
+      }
+      if (pinned.length || stuck.length === all.length) return refuse(dir, stuck, pinned, note);
       return runTurn(dir, { dx, dr, movers: all.filter((h) => !stuck.includes(h)), stuck });
     }
     runTurn('hold');
@@ -359,7 +369,7 @@
     setTimeout(() => { for (const h of heroes) els.get(h.id)?.classList.remove('jiggle'); }, 420);
   }
 
-  function refuse(dir, blocked, pinned) {
+  function refuse(dir, blocked, pinned, note = '') {
     const board = $('#board');
     board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake');
     setTimeout(() => board.classList.remove('shake'), 420);
@@ -367,6 +377,7 @@
     const names = (hs) => hs.map((h) => HEROES[h.type].name).join(', ');
     const word = { up: 'forward', left: 'left', right: 'right' }[dir];
     const why = !pinned.length ? `${names(blocked)} can't move ${word}`
+      : dir === 'up' && note ? `${names(pinned)} ${pinned.length === 1 ? 'is' : 'are'} held by an enemy on the back row, and ${note}`
       : dir === 'up' ? `${names(pinned)} can't advance from the back row and would be left off the map`
       : `${names(pinned)} ${pinned.length === 1 ? 'is' : 'are'} against the edge of the world`;
     setStatus(`Blocked — ${why}. Nothing moved and no turn passed. Reposition someone, pick another direction, or hold.`, true);
@@ -387,7 +398,8 @@
     else if (dir === 'arrange') log('move', opts.text);
     else {
       for (const h of heroes) { h.x += opts.dx; h.r += opts.dr; }
-      if (dir === 'up') { S.camR++; genRow(topRow()); cull(); log('move', `Squad advances to depth ${S.camR}.`); }
+      if (dir === 'up' && opts.noScroll) log('move', 'Squad pushes forward inside the zone while the back row holds the line.');
+      else if (dir === 'up') { S.camR++; genRow(topRow()); cull(); log('move', `Squad advances to depth ${S.camR}.`); }
       else log('move', `Squad sidesteps ${dir}.`);
       for (const h of stuck) log('move', `${HEROES[h.type].name} is blocked and stays behind.`, 'bad');
     }
