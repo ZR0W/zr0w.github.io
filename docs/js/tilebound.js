@@ -388,13 +388,20 @@
       const movers = all.filter((h) => !stuck.includes(h));
       // Held by an enemy on the bottom row: the rest still advance (and the held hero stays and
       // attacks) if they can do it inside the zone, so the view doesn't scroll and nobody is lost.
+      // (With no movers at all this is simply "everyone holds and fights".)
       let note = '';
-      if (dir === 'up' && pinned.length && movers.length && pinned.every((h) => cause.get(h) === 'enemy')) {
+      if (dir === 'up' && pinned.length && pinned.every((h) => cause.get(h) === 'enemy')) {
         if (movers.every((h) => h.r + 1 < S.camR + ZONE)) return runTurn(dir, { dx, dr, movers, stuck, noScroll: true });
         note = 'advancing the others would take them past the deployment zone';
       }
-      if (pinned.length || stuck.length === all.length) return refuse(dir, stuck, pinned, note);
-      return runTurn(dir, { dx, dr, movers: all.filter((h) => !stuck.includes(h)), stuck });
+      if (pinned.length) return refuse(dir, stuck, pinned, note);
+      if (!movers.length) {
+        // Nobody can move. Blocked by an enemy: the turn still happens — they stand and attack.
+        // Blocked only by terrain: refuse, so a pointless press never wastes a turn.
+        if (stuck.some((h) => cause.get(h) === 'enemy')) return runTurn(dir, { dx, dr, movers, stuck, noScroll: true });
+        return refuse(dir, stuck, pinned);
+      }
+      return runTurn(dir, { dx, dr, movers, stuck });
     }
     runTurn('hold');
   }
@@ -437,10 +444,11 @@
     else if (dir === 'arrange') log('move', opts.text);
     else {
       for (const h of heroes) { h.x += opts.dx; h.r += opts.dr; }
-      if (dir === 'up' && opts.noScroll) log('move', 'Squad pushes forward inside the zone while the back row holds the line.');
+      if (!heroes.length) log('move', 'Blocked by enemies — the squad stands its ground and attacks.');
+      else if (dir === 'up' && opts.noScroll) log('move', 'Squad pushes forward inside the zone while the back row holds the line.');
       else if (dir === 'up') { S.camR++; genRow(topRow()); cull(); log('move', `Squad advances to depth ${S.camR}.`); }
       else log('move', `Squad sidesteps ${dir}.`);
-      for (const h of stuck) log('move', `${HEROES[h.type].name} is blocked and stays behind.`, 'bad');
+      for (const h of stuck) log('move', `${HEROES[h.type].name} is blocked and ${heroes.length ? 'stays behind' : 'holds position'}.`, 'bad');
     }
     render();
     if (stuck.length) jiggle(stuck);
