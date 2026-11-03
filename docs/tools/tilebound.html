@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilebound – Webtools</title>
+<!-- Full-page game UI: Simple.css is intentionally omitted (its typography and button styles fight the board),
+     same as niu-lai-world.html. All art is inline SVG drawn in tilebound.js. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;600&family=Grenze+Gotisch:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1a1814; --panel: #24211c; --panel2: #2c2822; --line: #3d372e; --text: #ece4d3; --muted: #a39a88;
+    --gold: #f0a93b; --hero: #4f8be3; --enemy: #e8743a; --cream: #f1e6cf; --hp: #d8453b; --heal: #5cc77a;
+    --cell: min(64px, calc((100vw - 40px) / 7));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Barlow, system-ui, sans-serif; }
+  body { min-height: 100vh; -webkit-user-select: none; user-select: none; }
+  a { color: var(--gold); }
+  .display { font-family: "Grenze Gotisch", Georgia, serif; font-weight: 600; letter-spacing: .5px; }
+  .caps { font-family: "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+
+  header { display: flex; align-items: center; gap: 18px; padding: 10px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 34px; color: var(--gold); }
+  header .sub { color: var(--muted); font-size: 15px; }
+  header .spacer { flex: 1; }
+  header .stat { text-align: right; line-height: 1.05; }
+  header .stat small { display: block; color: var(--muted); font-size: 11px; }
+  header .stat b { font-family: "Barlow Condensed", sans-serif; font-size: 26px; }
+  header .stat.score b { color: var(--gold); }
+  .back { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--text); }
+
+  main { display: grid; grid-template-columns: 270px auto 290px; gap: 22px; padding: 16px 20px 28px; justify-content: center; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .panel h2 { margin: 0 0 10px; font-size: 24px; }
+  .panel h2 small { float: right; font-family: "Barlow Condensed", sans-serif; font-size: 12px; color: var(--muted); letter-spacing: 1.5px; margin-top: 8px; }
+
+  /* squad cards */
+  .card { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); margin-bottom: 10px; cursor: pointer; }
+  .card:hover, .card.on { border-color: var(--gold); }
+  .card.dead { opacity: .38; filter: grayscale(1); }
+  .card .icon { width: 48px; height: 48px; border-radius: 8px; background: var(--cream); border: 2px solid var(--hero); padding: 3px; }
+  .card .icon svg { width: 100%; height: 100%; display: block; }
+  .card .nm { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 19px; line-height: 1; }
+  .card .cl { font-size: 11px; color: var(--muted); margin: 2px 0 4px; }
+  .card .ab { font-size: 12px; color: var(--muted); grid-column: 1 / 3; line-height: 1.3; }
+  .card .ab b { color: var(--text); }
+  .pips { display: flex; gap: 3px; flex-wrap: wrap; }
+  .pips i { width: 9px; height: 9px; border-radius: 2px; background: var(--hp); display: block; }
+  .pips i.e { background: transparent; box-shadow: inset 0 0 0 1.5px #8d8577; }
+  .card .hpnum { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .mini { display: grid; grid-template-columns: repeat(5, 8px); gap: 2px; align-self: start; grid-row: 1 / 3; grid-column: 3; }
+  .mini i { width: 8px; height: 8px; border-radius: 1px; background: #3b362e; }
+  .mini i.a { background: var(--hero); }
+  .mini i.h { background: var(--gold); }
+  .hint { font-size: 12.5px; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; line-height: 1.45; }
+  .hint b { color: var(--text); }
+
+  /* board */
+  .boardwrap { display: flex; flex-direction: column; align-items: center; }
+  .boardtop { width: calc(var(--cell) * 7 + 24px); display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .boardtop .foes { color: var(--enemy); }
+  .frame { background: #14120f; border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  #board { position: relative; overflow: hidden; border-radius: 8px; width: calc(var(--cell) * 7); height: calc(var(--cell) * 9); }
+  #board.shake { animation: shake .38s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+  .floor { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(9, 1fr); }
+  .floor div { margin: 3px; border-radius: 7px; background: #26231e; }
+  .floor div.zone { background: #2a2419; box-shadow: inset 0 0 0 2px rgba(240,169,59,.45); }
+  .floor div.top { background: repeating-linear-gradient(135deg, #1f1c18 0 6px, #24211c 6px 12px); }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+
+  .ent { position: absolute; left: 0; top: 0; width: calc(100% / 7); height: calc(100% / 9); transition: transform .2s ease, opacity .25s; }
+  .ent.new { opacity: 0; }
+  .ent.gone { opacity: 0; transition: opacity .25s, transform .25s; }
+  .ent .t { position: absolute; inset: 4px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ent .t svg { width: 74%; height: 74%; display: block; }
+  .ent.terrain .t { inset: 3px; }
+  .ent.terrain .t svg { width: 100%; height: 100%; }
+  .ent.hero .t, .ent.enemy .t { background: var(--cream); border: 2.5px solid var(--hero); box-shadow: 0 3px 0 rgba(0,0,0,.45); }
+  .ent.enemy .t { border-color: var(--enemy); }
+  .ent.item .t { background: #2b2620; border: 2px solid var(--gold); }
+  .ent.item.spikes .t, .ent.item.boulder .t { border-style: dashed; }
+  .ent.hero { pointer-events: auto; cursor: pointer; z-index: 3; }
+  .ent.enemy { z-index: 2; }
+  .ent.hero.sel .t { box-shadow: 0 0 0 3px var(--gold), 0 3px 0 rgba(0,0,0,.45); }
+  .ent .pips { position: absolute; bottom: 3px; left: 0; right: 0; justify-content: center; gap: 2px; }
+  .ent .pips i { width: 6px; height: 6px; }
+  .ent .pips i.e { box-shadow: inset 0 0 0 1.2px #8d8577; }
+  .ent .badge { position: absolute; top: 0; right: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--enemy); color: #fff;
+    font: 700 13px/20px "Barlow Condensed", sans-serif; text-align: center; box-shadow: 0 0 0 2px #14120f; }
+  .ent .badge.atk { background: #c62f2f; }
+  .ent .badge.idle { background: #6f675b; }
+  .ent .threat { position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-radius: 50%; background: #c62f2f; color: #fff;
+    font: 700 13px/20px "Barlow Condensed", sans-serif; text-align: center; box-shadow: 0 0 0 2px #14120f; }
+  .ent.hit .t { animation: hit .32s; }
+  @keyframes hit { 0%,100% { filter: none; } 30% { filter: brightness(2.2) saturate(.2); transform: scale(.92); } }
+  .ent.jiggle .t { animation: jiggle .4s; }
+  @keyframes jiggle { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-9deg) translateY(-2px); } 40% { transform: rotate(8deg); } 60% { transform: rotate(-6deg); } 80% { transform: rotate(4deg); } }
+
+  .ov { position: absolute; width: calc(100% / 7); height: calc(100% / 9); }
+  .ov.range::after { content: ""; position: absolute; inset: 3px; border-radius: 7px; background: rgba(79,139,227,.32); box-shadow: inset 0 0 0 2px rgba(79,139,227,.85); }
+  .ov.target { pointer-events: auto; cursor: pointer; }
+  .ov.target::after { content: "+"; position: absolute; inset: 5px; border-radius: 7px; border: 2px dashed var(--gold); color: var(--gold);
+    display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .ov.target:hover::after { background: rgba(240,169,59,.18); }
+  .ov.intent::after { content: ""; position: absolute; left: 50%; top: 50%; width: 38%; height: 38%; transform: translate(-50%,-50%);
+    border-radius: 50%; border: 2px dotted var(--enemy); background: radial-gradient(circle, var(--enemy) 0 3px, transparent 4px); }
+  .ov.flash::after { content: ""; position: absolute; inset: 3px; border-radius: 7px; background: rgba(110,170,255,.55); animation: fade .45s forwards; }
+  @keyframes fade { to { opacity: 0; } }
+  .float { position: absolute; width: calc(100% / 7); text-align: center; font: 700 22px "Barlow Condensed", sans-serif; color: #ff6b5b;
+    text-shadow: 0 2px 0 #000, 0 0 4px #000; animation: rise .85s forwards; z-index: 10; }
+  .float.heal { color: var(--heal); }
+  .float.gold { color: var(--gold); }
+  @keyframes rise { from { transform: translateY(10%); opacity: 1; } to { transform: translateY(-80%); opacity: 0; } }
+
+  .zonelabel { width: calc(var(--cell) * 7 + 24px); font-size: 13px; color: var(--gold); margin: 10px 0; display: flex; align-items: center; gap: 8px; }
+  .zonelabel i { width: 22px; height: 14px; border: 2px dashed var(--gold); border-radius: 3px; }
+  .controls { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; width: calc(var(--cell) * 7 + 24px); }
+  .controls button { font: 700 20px "Barlow Condensed", sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--text);
+    background: var(--panel2); border: 2px solid var(--line); border-radius: 12px; padding: 14px 6px; cursor: pointer; box-shadow: 0 4px 0 #0e0d0b; }
+  .controls button:hover { border-color: #6c6352; }
+  .controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 #0e0d0b; }
+  .controls button.fwd { background: var(--gold); color: #2a1d08; border-color: #ffd28a; }
+  .controls button.hold { grid-column: 1 / 4; padding: 8px; font-size: 15px; }
+  .controls button:disabled { opacity: .45; cursor: default; }
+  .controls kbd { font: 600 11px Barlow, sans-serif; opacity: .6; margin-left: 4px; letter-spacing: 0; }
+  #status { margin-top: 12px; font-size: 14px; color: var(--muted); text-align: center; max-width: calc(var(--cell) * 7 + 24px); min-height: 2.6em; }
+  #status.warn { color: #ff8f6b; }
+
+  /* right panel */
+  .scorebox { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .scorebox div { background: var(--panel2); border-radius: 8px; padding: 6px 8px; }
+  .scorebox div.big { grid-column: 1 / 4; display: flex; align-items: baseline; justify-content: space-between; }
+  .scorebox small { display: block; color: var(--muted); font: 600 11px "Barlow Condensed", sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
+  .scorebox b { font: 700 22px "Barlow Condensed", sans-serif; }
+  .scorebox .big b { font-size: 40px; color: var(--gold); }
+  .scorebox .big span { color: var(--muted); font-size: 13px; text-align: right; }
+  ol.phases { list-style: none; padding: 0; margin: 0; }
+  ol.phases li { display: grid; grid-template-columns: 28px 1fr; gap: 0 10px; margin-bottom: 9px; color: var(--muted); }
+  ol.phases li span { grid-row: 1 / 3; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #5b5446; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; }
+  ol.phases li b { color: var(--text); font-family: "Barlow Condensed", sans-serif; font-size: 17px; }
+  ol.phases li small { font-size: 12.5px; }
+  ol.phases li.on span { background: var(--gold); border-color: var(--gold); color: #2a1d08; }
+  ol.phases li.on b { color: var(--gold); }
+  #log { list-style: none; margin: 0; padding: 0; font-size: 13px; max-height: 210px; overflow: auto; }
+  #log li { padding: 3px 0; border-bottom: 1px solid #312c25; color: var(--muted); }
+  #log li em { font-style: normal; font-family: "Barlow Condensed", sans-serif; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #7f7766; margin-right: 6px; }
+  #log li.bad { color: #ff9b85; } #log li.good { color: #9fe0b0; } #log li.gold { color: var(--gold); }
+  .intents { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .intents li { display: grid; grid-template-columns: 34px 1fr; gap: 8px; margin-bottom: 8px; color: var(--muted); align-items: center; }
+  .intents li .ic { width: 34px; height: 34px; border-radius: 6px; background: var(--cream); border: 2px solid var(--enemy); padding: 2px; }
+  .intents li .ic.it { background: #2b2620; border-color: var(--gold); }
+  .intents li .ic svg { width: 100%; height: 100%; display: block; }
+  .intents li b { color: var(--text); }
+  .intents .none { color: var(--muted); font-size: 13px; }
+
+  #over { position: fixed; inset: 0; background: rgba(10,9,7,.78); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #over.show { display: flex; }
+  #over .box { background: var(--panel); border: 1px solid var(--gold); border-radius: 14px; padding: 26px 34px; text-align: center; min-width: 280px; }
+  #over h2 { margin: 0 0 6px; font-size: 44px; color: var(--gold); }
+  #over p { color: var(--muted); margin: 6px 0; }
+  #over p b { color: var(--text); font-size: 20px; }
+  .btn { font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 2px; text-transform: uppercase; background: var(--gold); color: #2a1d08;
+    border: 0; border-radius: 10px; padding: 10px 22px; margin-top: 12px; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-size: 14px; padding: 6px 12px; margin: 0; }
+
+  @media (max-width: 1150px) {
+    main { grid-template-columns: auto 290px; }
+    .left { grid-column: 1 / 3; grid-row: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0 12px; }
+    .left .panel { display: contents; }
+    .left .panel h2, .left .hint { grid-column: 1 / -1; }
+  }
+  @media (max-width: 760px) {
+    header { padding: 8px 14px; gap: 10px; } header h1 { font-size: 28px; } header .sub { display: none; }
+    main { grid-template-columns: 1fr; padding: 12px 16px; gap: 10px; }
+    .boardwrap { order: -1; }
+    .ent .pips { gap: 1px; } .ent .pips i { width: 4px; height: 5px; }
+    .left { grid-column: 1; grid-row: auto; grid-template-columns: 1fr; }
+    .controls button { font-size: 17px; padding: 12px 4px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="../index.html">← Webtools</a>
+  <h1 class="display">Tilebound</h1>
+  <span class="sub caps">Endless descent · Dungeon squad prototype</span>
+  <span class="spacer"></span>
+  <div class="stat"><small class="caps">Depth</small><b id="hDepth">0</b></div>
+  <div class="stat"><small class="caps">Turn</small><b id="hTurn">1</b></div>
+  <div class="stat score"><small class="caps">Score</small><b id="hScore">0</b></div>
+  <button class="btn ghost" id="newRun" title="Start a new run (R)">New run</button>
+</header>
+
+<main>
+  <section class="left">
+    <div class="panel">
+      <h2 class="display">Your Squad <small id="aliveCount">4 HEROES</small></h2>
+      <div id="squad"></div>
+      <div class="hint">Hover (or tap) a hero to see its <b>attack zone</b> in blue. Forward is up.<br>
+        Click a hero, then a <b style="color:var(--gold)">gold +</b> square to reposition (click another hero to swap). Rearranging is free.</div>
+    </div>
+  </section>
+
+  <section class="boardwrap">
+    <div class="boardtop caps"><span>↑ Unexplored — revealed as you advance</span><span class="foes" id="foeCount">0 enemies in sight</span></div>
+    <div class="frame"><div id="board">
+      <div class="floor" id="floor"></div>
+      <div class="layer" id="ents"></div>
+      <div class="layer" id="ovl"></div>
+      <div class="layer" id="fx"></div>
+    </div></div>
+    <div class="zonelabel caps"><i></i>Deployment zone — rearrange freely before you move</div>
+    <div class="controls">
+      <button id="bLeft">← Left<kbd>A</kbd></button>
+      <button id="bUp" class="fwd">↑ Forward<kbd>W</kbd></button>
+      <button id="bRight">Right →<kbd>D</kbd></button>
+      <button id="bHold" class="hold">Hold &amp; strike<kbd>Space</kbd></button>
+    </div>
+    <div id="status">Arrange phase — tap a hero, then a gold square to reposition. Then pick a direction.</div>
+  </section>
+
+  <section class="right">
+    <div class="panel">
+      <div class="scorebox">
+        <div class="big"><div><small>Score</small><b id="sScore">0</b></div><span>Best<br><b id="sBest" style="font-size:20px;color:var(--text)">0</b></span></div>
+        <div><small>Depth</small><b id="sDepth">0</b></div>
+        <div><small>Kills</small><b id="sKills">0</b></div>
+        <div><small>Gold</small><b id="sGold">0</b></div>
+      </div>
+      <p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">Score = depth × 10 + kill points + gold · seed <span id="sSeed"></span></p>
+    </div>
+    <div class="panel">
+      <h2 class="display">Each Turn</h2>
+      <ol class="phases" id="phases">
+        <li data-p="1" class="on"><span>1</span><b>Arrange</b><small>Shuffle heroes inside the gold zone (free)</small></li>
+        <li data-p="2"><span>2</span><b>Move</b><small>Forward, left, right or hold — this commits</small></li>
+        <li data-p="3"><span>3</span><b>Heroes strike</b><small>Every enemy in an attack zone is hit</small></li>
+        <li data-p="4"><span>4</span><b>Enemies act</b><small>All visible foes follow their rule</small></li>
+        <li data-p="5"><span>5</span><b>World acts</b><small>Traps toggle, boulders roll</small></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2 class="display">Last Turn <small id="logTurn"></small></h2>
+      <ul id="log"><li>Nothing yet — make your first move.</li></ul>
+    </div>
+    <div class="panel">
+      <h2 class="display">In Sight</h2>
+      <ul class="intents" id="intents"></ul>
+    </div>
+  </section>
+</main>
+
+<div id="over"><div class="box">
+  <h2 class="display">Squad Fallen</h2>
+  <p>Score <b id="oScore">0</b></p>
+  <p>Depth <b id="oDepth">0</b> · Kills <b id="oKills">0</b> · Gold <b id="oGold">0</b></p>
+  <p id="oBest"></p>
+  <button class="btn" id="oAgain">Descend again</button>
+</div></div>
+
+<script src="../js/tilebound.js"></script>
+</body>
+</html>
