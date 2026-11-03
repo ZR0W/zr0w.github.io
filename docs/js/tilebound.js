@@ -13,7 +13,7 @@
 (() => {
   'use strict';
 
-  const W = 7, H = 9, ZONE = 2;
+  const W = 7, H = 11, ZONE = 4;
   const $ = (s) => document.querySelector(s);
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -64,6 +64,11 @@
       <path d="M8 19 q12 -14 24 0 v-4 q-12 -9 -24 0Z" fill="#6b6f78" stroke="#2e4524" stroke-width="2"/>
       <path d="M13 21 l5 2 M27 21 l-5 2" stroke="#1d1d1d" stroke-width="2.2" stroke-linecap="round"/><circle cx="16" cy="24.5" r="1.5" fill="#ff5a3a"/><circle cx="24" cy="24.5" r="1.5" fill="#ff5a3a"/>
       <path d="M14 29.5 h12" stroke="#1d1d1d" stroke-width="1.8"/><path d="M15 30 l1.2 -4 l1.2 4Z M22.6 30 l1.2 -4 l1.2 4Z" fill="#fff" stroke="#bbb" stroke-width=".6"/>`),
+    archer: svg(`<path d="M31 6 q8 14 0 28" stroke="#7a4a2a" stroke-width="2.4" fill="none"/><path d="M31 6 V34" stroke="#cfc8b8" stroke-width="1"/>
+      <path d="M5 19 a11 11 0 0 1 22 0 v6 h-3 v5 h-16 v-5 h-3Z" fill="#e4ddcf" stroke="#3b3a36" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M5 16 q11 -9 22 0" fill="#7d2a2a" stroke="#3b3a36" stroke-width="1.5"/>
+      <circle cx="11.5" cy="19.5" r="3" fill="#2a2a2a"/><circle cx="20.5" cy="19.5" r="3" fill="#2a2a2a"/><circle cx="11.5" cy="19.5" r="1" fill="#ff5a3a"/><circle cx="20.5" cy="19.5" r="1" fill="#ff5a3a"/>
+      <path d="M16 23 l-1.5 3 h3z" fill="#2a2a2a"/><path d="M12.5 27.5v2.5M16 27.5v2.5M19.5 27.5v2.5" stroke="#3b3a36" stroke-width="1.5"/>`),
     rock: svg(`<path d="M6 32 L10 21 L19 16 L26 21 L33 20 L35 32 Z" fill="#6d665e" stroke="#2c2925" stroke-width="2" stroke-linejoin="round"/>
       <path d="M13 25 L18 21.5 M24 27 l4 -3" stroke="#8d857b" stroke-width="1.6"/><path d="M27 12 l4 -2 l2 4 l-4 1z" fill="#5d574f" stroke="#2c2925" stroke-width="1.4"/>`),
     pillar: svg(`<circle cx="20" cy="20" r="14" fill="#55514b" stroke="#2c2925" stroke-width="2"/><circle cx="20" cy="20" r="9.5" fill="#6e6a64" stroke="#3d3a35" stroke-width="1.2"/>
@@ -87,17 +92,18 @@
   // ---------- definitions ----------
   // Attack zones are [dx, dr] offsets from the hero; dr > 0 is forward (up the screen).
   const HEROES = {
-    knight: { name: 'Brannoc', cls: 'Knight', hp: 6, dmg: 2, ability: 'Cleave', desc: 'hits the 3 squares in front (2 dmg)', zone: [[-1, 1], [0, 1], [1, 1]] },
-    ranger: { name: 'Wren', cls: 'Ranger', hp: 4, dmg: 1, ability: 'Longshot', desc: 'hits 4 squares straight ahead (1 dmg)', zone: [[0, 1], [0, 2], [0, 3], [0, 4]] },
-    mage: { name: 'Ozric', cls: 'Mage', hp: 3, dmg: 2, ability: 'Arc Flame', desc: 'hits both diagonals, 2 deep (2 dmg)', zone: [[-1, 1], [1, 1], [-2, 2], [2, 2]] },
-    cleric: { name: 'Sister Ilse', cls: 'Cleric', hp: 4, dmg: 1, ability: 'Sanctify', desc: 'smites foes beside her (1 dmg), heals allies beside her +1', zone: [[0, 1], [-1, 0], [1, 0], [0, -1]], heal: 1 },
+    knight: { name: 'Brannoc', cls: 'Knight', hp: 6, dmg: 2, ability: 'Cleave', desc: 'hits the 3 squares in front (2 dmg)', color: '#ff6b5b', zone: [[-1, 1], [0, 1], [1, 1]] },
+    ranger: { name: 'Wren', cls: 'Ranger', hp: 4, dmg: 1, ability: 'Longshot', desc: 'hits 4 squares straight ahead (1 dmg)', color: '#5cd67e', zone: [[0, 1], [0, 2], [0, 3], [0, 4]] },
+    mage: { name: 'Ozric', cls: 'Mage', hp: 3, dmg: 2, ability: 'Arc Flame', desc: 'hits both diagonals, 2 deep (2 dmg)', color: '#b48cff', zone: [[-1, 1], [1, 1], [-2, 2], [2, 2]] },
+    cleric: { name: 'Sister Ilse', cls: 'Cleric', hp: 4, dmg: 1, ability: 'Sanctify', desc: 'smites foes beside her (1 dmg), heals allies beside her +1', color: '#ffd25a', zone: [[0, 1], [-1, 0], [1, 0], [0, -1]], heal: 1 },
   };
   const ENEMIES = {
-    skeleton: { name: 'Skeleton', hp: 2, dmg: 1, pts: 10, rule: 'Sentry — if a hero is in line of sight straight below, marches 1 square toward it; otherwise stands still.' },
-    slime: { name: 'Slime', hp: 3, dmg: 1, pts: 10, rule: 'Patrol — oozes one way until blocked, then back the other way.' },
-    goblin: { name: 'Goblin', hp: 2, dmg: 1, pts: 15, rule: 'Hunter — path-finds 1 square toward the nearest hero.' },
-    bat: { name: 'Bat', hp: 1, dmg: 1, pts: 15, rule: 'Flits randomly. Bites an adjacent hero, then flees to the top of the screen for 5 turns and repeats.' },
-    orc: { name: 'Orc Brute', hp: 5, dmg: 2, pts: 30, rule: 'Heavy hunter — chases the nearest hero, but only moves on even turns. Hits for 2.' },
+    skeleton: { name: 'Skeleton', hp: 3, dmg: 1, pts: 10, rule: 'Sentry — if a hero is in line of sight straight below, marches 1 square toward it; otherwise stands still.' },
+    slime: { name: 'Slime', hp: 3, dmg: 1, pts: 10, rule: 'Patrol — oozes one way until blocked, then back the other way. Splits into two small slimes when killed.' },
+    goblin: { name: 'Goblin', hp: 3, dmg: 1, pts: 15, rule: 'Hunter — path-finds 1 square toward the nearest hero.' },
+    bat: { name: 'Bat', hp: 2, dmg: 1, pts: 15, rule: 'Flits randomly. Bites an adjacent hero, then flees to the top of the screen for 5 turns and repeats.' },
+    archer: { name: 'Skeleton Archer', hp: 2, dmg: 1, pts: 20, rule: 'Sniper — shoots the first hero in line of sight straight below (up to 5 squares); otherwise paces sideways.' },
+    orc: { name: 'Orc Brute', hp: 6, dmg: 2, pts: 30, rule: 'Heavy hunter — chases the nearest hero, but only moves on even turns. Hits for 2.' },
   };
   const ITEMS = {
     chest: { name: 'Chest', rule: 'Step on it: +25 gold.' },
@@ -171,7 +177,7 @@
   function genRow(r) {
     const row = Array(W).fill('.');
     S.rows.set(r, row);
-    if (r < 4) return;
+    if (r < ZONE + 2) return; // the zone and the two rows ahead start empty
     const prev = S.rows.get(r - 1);
     if (!(prev && prev.some((c) => c !== '.')) && rnd() < 0.5) {
       const n = rnd() < 0.4 ? 2 : 1;
@@ -196,20 +202,29 @@
       const x = freeX();
       if (x >= 0) S.items.push({ id: 'i' + S.nextId++, kind: 'item', type: it, x, r, up: rnd() < 0.5, dir: rnd() < 0.5 ? -1 : 1 });
     }
-    const p = Math.min(0.8, 0.3 + r * 0.006);
+    // Difficulty: spawn chance, pack size, HP (+1 per 25 rows) and damage (+1 per 60 rows) all grow with depth.
+    const p = Math.min(0.9, 0.4 + r * 0.008);
     let n = rnd() < p ? 1 : 0;
-    if (r > 35 && rnd() < p * 0.4) n++;
+    if (r > 15 && rnd() < p * 0.5) n++;
+    if (r > 45 && rnd() < p * 0.3) n++;
     const pool = ['skeleton', 'skeleton', 'slime', 'slime'];
-    if (r > 7) pool.push('goblin', 'goblin');
-    if (r > 12) pool.push('bat', 'bat');
-    if (r > 22) pool.push('orc');
+    if (r > 5) pool.push('goblin', 'goblin');
+    if (r > 9) pool.push('bat', 'bat');
+    if (r > 12) pool.push('archer', 'archer');
+    if (r > 16) pool.push('orc');
     for (let i = 0; i < n; i++) {
       const x = freeX();
       if (x < 0) break;
-      const type = pick(pool);
-      const hp = ENEMIES[type].hp + Math.floor(r / 50);
-      S.enemies.push({ id: 'e' + S.nextId++, kind: 'enemy', type, x, r, hp, maxHp: hp, dir: rnd() < 0.5 ? -1 : 1, flee: 0, nextDir: null });
+      spawnEnemy(pick(pool), x, r, Math.floor(r / 25), Math.floor(r / 60));
     }
+  }
+
+  function spawnEnemy(type, x, r, hpBonus = 0, dmgBonus = 0, small = false) {
+    const hp = small ? 1 : ENEMIES[type].hp + hpBonus;
+    const e = { id: 'e' + S.nextId++, kind: 'enemy', type, x, r, hp, maxHp: hp, dmg: ENEMIES[type].dmg + dmgBonus,
+      small, dir: rnd() < 0.5 ? -1 : 1, flee: 0, nextDir: type === 'bat' ? pick(NEIGH) : null };
+    S.enemies.push(e);
+    return e;
   }
 
   // Drop everything that scrolled off the bottom.
@@ -274,6 +289,17 @@
         if (a.kind !== 'idle') return a;
         const b = stepPlan(e.x - e.dir, e.r, { dir: -e.dir });
         return b.kind !== 'idle' ? b : { kind: 'idle', dir: -e.dir };
+      }
+      case 'archer': {
+        for (let r = e.r - 1; r >= Math.max(S.camR, e.r - 5); r--) {
+          if (solid(e.x, r) || enemyAt(e.x, r)) break;
+          const h = heroAt(e.x, r);
+          if (h) return { kind: 'attack', hero: h, x: h.x, r: h.r, ranged: true };
+        }
+        const a = stepPlan(e.x + e.dir, e.r);
+        if (a.kind === 'move') return a;
+        const b = stepPlan(e.x - e.dir, e.r, { dir: -e.dir });
+        return b.kind === 'move' ? b : { kind: 'idle', dir: -e.dir };
       }
       case 'goblin': return hunt(e);
       case 'orc': return S.turn % 2 === 0 ? hunt(e) : { kind: 'idle', why: 'resting' };
@@ -381,28 +407,26 @@
       render();
     }
 
-    // 3. heroes strike (simultaneous)
+    // 3. heroes strike — one hero at a time, so you can see who attacked and their full pattern
     setPhase(3);
-    await sleep(120);
-    const hits = new Map();
+    await sleep(100);
+    let struck = false;
     for (const h of aliveHeroes()) {
+      if (!h.alive) continue;
       const d = HEROES[h.type];
-      for (const [ox, or] of d.zone) {
-        const x = h.x + ox, r = h.r + or;
-        const e = enemyAt(x, r);
-        if (e && inView(r)) {
-          hits.set(e, (hits.get(e) || 0) + d.dmg);
-          flashCell(x, r);
-          log('strike', `${d.name} → ${ENEMIES[e.type].name}: −${d.dmg}.`);
-        }
-        const ally = d.heal && heroAt(x, r);
-        if (ally && ally.hp < ally.maxHp) { heal(ally, d.heal); log('strike', `${d.name} heals ${HEROES[ally.type].name}: +${d.heal}.`, 'good'); }
-      }
+      const cells = d.zone.map(([ox, or]) => [h.x + ox, h.r + or]).filter(([x, r]) => x >= 0 && x < W && inView(r));
+      const targets = cells.map(([x, r]) => enemyAt(x, r)).filter(Boolean);
+      const heals = d.heal ? cells.map(([x, r]) => heroAt(x, r)).filter((a) => a && a.hp < a.maxHp) : [];
+      if (!targets.length && !heals.length) continue;
+      struck = true;
+      strikeFx(h, d, cells, targets);
+      await sleep(170);
+      for (const e of targets) { log('strike', `${d.name} → ${ENEMIES[e.type].name}: −${d.dmg}.`); damage(e, d.dmg); }
+      for (const a of heals) { heal(a, d.heal); log('strike', `${d.name} heals ${HEROES[a.type].name}: +${d.heal}.`, 'good'); }
+      render();
+      await sleep(330);
     }
-    for (const [e, dmg] of hits) damage(e, dmg);
-    if (!hits.size) log('strike', 'No enemies in any attack zone.');
-    render();
-    await sleep(hits.size ? 360 : 140);
+    if (!struck) log('strike', 'No enemies in any attack zone.');
 
     // 4. enemies act (closest to the squad first, one at a time against the live board)
     setPhase(4);
@@ -415,10 +439,16 @@
       const en = ENEMIES[e.type].name;
       if (p.kind === 'move') { e.x = p.x; e.r = p.r; }
       else if (p.kind === 'attack') {
-        const dmg = ENEMIES[e.type].dmg;
-        damage(p.hero, dmg);
-        bump(e, p.hero);
-        log('enemy', `${en} hits ${HEROES[p.hero.type].name}: −${dmg}.` + (e.type === 'bat' ? ' It flees upward.' : ''), 'bad');
+        render(); // show the moves made so far, then play this attack on its own
+        const path = [];
+        if (p.ranged) for (let r = e.r - 1; r >= p.hero.r; r--) path.push([e.x, r]);
+        else { path.push([p.hero.x, p.hero.r]); bump(e, p.hero); }
+        attackerGlow(e.id, '#ff4a3a');
+        flashCells(path, '#ff4a3a');
+        await sleep(150);
+        damage(p.hero, e.dmg);
+        log('enemy', `${en} ${p.ranged ? 'shoots' : 'hits'} ${HEROES[p.hero.type].name}: −${e.dmg}.` + (e.type === 'bat' ? ' It flees upward.' : ''), 'bad');
+        await sleep(260);
       }
     }
     if (!order.length) log('enemy', 'No enemies in sight.');
@@ -473,6 +503,16 @@
       S.kills++; S.killPts += d.pts;
       log('death', `${d.name} destroyed: +${d.pts} pts.`, 'gold');
       S.enemies = S.enemies.filter((e) => e !== u);
+      if (u.type === 'slime' && !u.small) {
+        let made = 0;
+        for (const [dx, dr] of [[-1, 0], [1, 0], [0, 1], [0, -1]]) {
+          if (made === 2) break;
+          if (!enemyPassable(u.x + dx, u.r + dr)) continue;
+          spawnEnemy('slime', u.x + dx, u.r + dr, 0, u.dmg - 1, true);
+          made++;
+        }
+        if (made) log('death', `The slime splits into ${made} small slime${made > 1 ? 's' : ''}!`, 'bad');
+      }
     }
   }
 
@@ -579,7 +619,7 @@
     }
     for (const e of S.enemies) {
       if (e.hp <= 0 || !inView(e.r)) continue;
-      place(e.id, 'enemy', e.x, e.r, `${e.type}${e.hp}/${e.maxHp}`, ART[e.type] + pipHtml(e.hp, e.maxHp));
+      place(e.id, e.small ? 'enemy small' : 'enemy', e.x, e.r, `${e.type}${e.hp}/${e.maxHp}`, ART[e.type] + pipHtml(e.hp, e.maxHp));
     }
     for (const h of S.heroes) {
       if (!h.alive) continue;
@@ -691,10 +731,11 @@
     for (const c of document.querySelectorAll('.card')) c.classList.toggle('on', c.dataset.id === (S.hover || S.sel));
   }
 
-  function floatText(x, r, text, cls = '') {
+  function floatText(x, r, text, cls = '', color = '') {
     if (!inView(r)) return;
     const d = document.createElement('div');
     d.className = 'float ' + cls;
+    if (color) d.style.color = color;
     d.textContent = text;
     d.style.left = (x / W) * 100 + '%';
     d.style.top = (sy(r) / H) * 100 + '%';
@@ -702,13 +743,39 @@
     setTimeout(() => d.remove(), 900);
   }
 
-  function flashCell(x, r) {
-    const d = document.createElement('div');
-    d.className = 'ov flash';
-    d.style.left = (x / W) * 100 + '%';
-    d.style.top = (sy(r) / H) * 100 + '%';
-    $('#fx').appendChild(d);
-    setTimeout(() => d.remove(), 500);
+  // Briefly paint cells in a colour; `hit` cells (with a target) are painted stronger.
+  function flashCells(cells, color, hit = new Set()) {
+    for (const [x, r] of cells) {
+      const d = document.createElement('div');
+      d.className = 'ov pattern' + (hit.has(x + ',' + r) ? ' hit' : '');
+      d.style.setProperty('--c', color);
+      d.style.left = (x / W) * 100 + '%';
+      d.style.top = (sy(r) / H) * 100 + '%';
+      $('#fx').appendChild(d);
+      setTimeout(() => d.remove(), 750);
+    }
+  }
+
+  function attackerGlow(id, color) {
+    const el = els.get(id);
+    if (!el) return;
+    el.style.setProperty('--c', color);
+    el.classList.remove('striking'); void el.offsetWidth; el.classList.add('striking');
+    setTimeout(() => el.classList.remove('striking'), 520);
+  }
+
+  // A hero's attack: glow + lunge, its skill name, its card lights up, and its whole pattern flashes.
+  function strikeFx(h, d, cells, targets) {
+    attackerGlow(h.id, d.color);
+    if (h.type !== 'cleric') bump(h, { x: h.x, r: h.r + 1 });
+    floatText(h.x, h.r, d.ability, 'skill', d.color);
+    flashCells(cells, d.color, new Set(targets.map((e) => e.x + ',' + e.r)));
+    const card = document.querySelector(`.card[data-id="${h.id}"]`);
+    if (card) {
+      card.style.setProperty('--c', d.color);
+      card.classList.remove('striking'); void card.offsetWidth; card.classList.add('striking');
+      setTimeout(() => card.classList.remove('striking'), 600);
+    }
   }
 
   function hitFx(id) {
