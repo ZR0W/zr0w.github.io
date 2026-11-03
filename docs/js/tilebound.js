@@ -45,6 +45,37 @@
       <path d="M9 35 q0 -24 11 -24 q11 0 11 24Z" fill="#f2ead8" stroke="#8a7a5a" stroke-width="2"/>
       <circle cx="20" cy="20" r="5.5" fill="#f0c9a0"/>${eyes(19.5)}<path d="M18 22.5 q2 1.2 4 0" stroke="#7a4a2a" stroke-width="1" fill="none"/>
       <path d="M20 27 v6 M17 30 h6" stroke="#c9a032" stroke-width="2.2"/>`),
+    lancer: svg(`<path d="M33 4 V37" stroke="#7a5a3a" stroke-width="2.4"/><path d="M33 0.5 L36.5 8.5 H29.5Z" fill="#cfd6de" stroke="#4a4f55" stroke-width="1.2"/>
+      <path d="M7 37 q0 -12 11 -12 q11 0 11 12Z" fill="#b8323a" stroke="#5a1a1e" stroke-width="1.6"/>
+      <circle cx="18" cy="20" r="7.5" fill="#f0c9a0"/><path d="M9.5 19 a8.5 8.5 0 0 1 17 0 Z" fill="#a9b3bf" stroke="#3a3f47" stroke-width="1.6"/>
+      <circle cx="15.5" cy="22" r="1.1" fill="#222"/><circle cx="20.5" cy="22" r="1.1" fill="#222"/>`),
+    rogue: svg(`<path d="M20 4 C31 4 34 16 34 35 H6 C6 16 9 4 20 4Z" fill="#3a3346" stroke="#1d1a24" stroke-width="2"/>
+      <ellipse cx="20" cy="22" rx="7.5" ry="7" fill="#f0c9a0"/><rect x="12" y="19" width="16" height="4.5" rx="2" fill="#1d1a24"/>
+      <circle cx="16.8" cy="21.2" r="1" fill="#fff"/><circle cx="23.2" cy="21.2" r="1" fill="#fff"/>
+      <path d="M3 31 L11 25 M37 31 L29 25" stroke="#cfd6de" stroke-width="2.4" stroke-linecap="round"/>`),
+    guardian: svg(`<path d="M20 3 L35 8.5 V20 C35 29 28 34.5 20 37.5 C12 34.5 5 29 5 20 V8.5 Z" fill="#4f6d9a" stroke="#22324a" stroke-width="2"/>
+      <path d="M20 8 V33 M10 18 H30" stroke="#e7b93a" stroke-width="3.2"/><circle cx="20" cy="18" r="3" fill="#e7b93a"/>`),
+    bombardier: svg(`<circle cx="18" cy="24" r="11.5" fill="#2d2f36" stroke="#111" stroke-width="2"/><rect x="14" y="11" width="8" height="4" rx="1" fill="#56606d"/>
+      <path d="M22 12 q5 -7 11 -5" stroke="#8a5a2b" stroke-width="2" fill="none"/><path d="M34 7 l2.5 -3 M35 8.5 l3.5 0 M33 5 l0 -3.5" stroke="#ffb340" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="13.5" cy="20" r="3" fill="#5c6675"/><circle cx="14" cy="26" r="2.6" fill="#ff5fa2"/><circle cx="22" cy="26" r="2.6" fill="#ff5fa2"/>`),
+    monk: svg(`<path d="M7 37 q0 -15 13 -15 q13 0 13 15Z" fill="#e8892d" stroke="#7a3f10" stroke-width="2"/><path d="M13 24 L25 37" stroke="#b5561a" stroke-width="2.4"/>
+      <circle cx="20" cy="15" r="8" fill="#f0c9a0" stroke="#9a6a4a" stroke-width="1.2"/><path d="M16 15.5 h2.4 M21.6 15.5 h2.4" stroke="#222" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="20" cy="8.6" r="1" fill="#c9862d"/><circle cx="16.4" cy="9.6" r="1" fill="#c9862d"/><circle cx="23.6" cy="9.6" r="1" fill="#c9862d"/>`),
+    druid: svg(`<path d="M13 13 L8 4 M10.5 8.5 L5 7.5 M27 13 L32 4 M29.5 8.5 L35 7.5" stroke="#7a5a3a" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M7 37 q0 -19 13 -19 q13 0 13 19Z" fill="#4e7a3a" stroke="#25401a" stroke-width="2"/>
+      <circle cx="20" cy="17" r="6.5" fill="#f0c9a0"/>${eyes(17)}<path d="M13 31 q7 -7 14 0 q-7 4.5 -14 0Z" fill="#8cc44d" stroke="#3d5e1d" stroke-width="1"/>`),
+    berserker: svg(`<path d="M9 15 q-5 -6 -1 -12 q2 7 7 9 M31 15 q5 -6 1 -12 q-2 7 -7 9" fill="#e9e2cc" stroke="#6a6250" stroke-width="1.5"/>
+      <circle cx="20" cy="22" r="7.5" fill="#f0c9a0"/><path d="M9 20 a11 11 0 0 1 22 0Z" fill="#8a8f98" stroke="#3a3f47" stroke-width="2"/>
+      <path d="M15.5 22 l3 1 M24.5 22 l-3 1" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M12 25 q8 17 16 0 q-8 5 -16 0Z" fill="#c4532a" stroke="#7a2a12" stroke-width="1.2"/>`),
+    engineer: svg(`<circle cx="20" cy="22" r="10" fill="#f0c9a0" stroke="#9a6a4a" stroke-width="1.2"/><path d="M8.5 18 a11.5 11.5 0 0 1 23 0Z" fill="#d9a03a" stroke="#7a5212" stroke-width="2"/>
+      <path d="M8 21 H32" stroke="#3a3f47" stroke-width="1.6"/><circle cx="15.5" cy="21" r="3.4" fill="#7df0ff" stroke="#3a3f47" stroke-width="1.6"/><circle cx="24.5" cy="21" r="3.4" fill="#7df0ff" stroke="#3a3f47" stroke-width="1.6"/>
+      <path d="M17 28 q3 1.6 6 0" stroke="#7a4a2a" stroke-width="1.2" fill="none"/><path d="M31 37 L36 30 M34.5 28.5 a2.6 2.6 0 1 0 3 3" stroke="#8a94a1" stroke-width="2.4" fill="none" stroke-linecap="round"/>`),
+    turret: svg(`<rect x="8" y="27" width="24" height="9" rx="2" fill="#6b7480" stroke="#2b3036" stroke-width="2"/><rect x="12.5" y="14" width="15" height="14" rx="3" fill="#8a94a1" stroke="#2b3036" stroke-width="2"/>
+      <rect x="18" y="2.5" width="4" height="12.5" fill="#4a525c" stroke="#2b3036" stroke-width="1.2"/><circle cx="20" cy="21" r="2.4" fill="#7df0ff"/>`),
+    vine: svg(`<path d="M20 37 C13 29 27 22 18 14 C14 10 18 5 23 3" stroke="#3f7d2a" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+      <path d="M18 28 q-9 -2 -11 -9 q9 0 11 9Z M22 20 q9 -2 11 -9 q-9 0 -11 9Z M19 11.5 q-7 -1 -8 -6.5 q7 0 8 6.5Z" fill="#6fb34a" stroke="#2c5a1c" stroke-width="1"/>
+      <path d="M9 35 l3 -4 M31 35 l-3 -4 M20 33 v-4" stroke="#b33" stroke-width="1.6" stroke-linecap="round"/>`),
     skeleton: svg(`<path d="M8 19 a12 12 0 0 1 24 0 v6 h-3.5 v5 h-17 v-5 h-3.5Z" fill="#efeae0" stroke="#3b3a36" stroke-width="2" stroke-linejoin="round"/>
       <circle cx="15" cy="19.5" r="3.4" fill="#2a2a2a"/><circle cx="25" cy="19.5" r="3.4" fill="#2a2a2a"/><path d="M20 23 l-1.8 3.2 h3.6z" fill="#2a2a2a"/>
       <path d="M16 27.5v2.5M20 27.5v2.5M24 27.5v2.5" stroke="#3b3a36" stroke-width="1.6"/>`),
@@ -100,6 +131,15 @@
     knight: { name: 'Brannoc', cls: 'Knight', hp: 6, dmg: 2, ability: 'Cleave', desc: 'hits every enemy in the 3 squares in front (2 dmg)', color: '#ff6b5b', zone: [[-1, 1], [0, 1], [1, 1]] },
     ranger: { name: 'Wren', cls: 'Ranger', hp: 4, dmg: 1, ability: 'Longshot', desc: 'shoots the first enemy up to 4 squares straight ahead (1 dmg); no piercing, obstacles block', pierce: false, color: '#5cd67e', zone: [[0, 1], [0, 2], [0, 3], [0, 4]] },
     mage: { name: 'Ozric', cls: 'Mage', hp: 3, dmg: 2, ability: 'Arc Flame', desc: 'hits every enemy on both diagonals, 2 deep (2 dmg)', color: '#b48cff', zone: [[-1, 1], [1, 1], [-2, 2], [2, 2]] },
+    lancer: { name: 'Tamsin', cls: 'Lancer', hp: 5, dmg: 2, ability: 'Skewer', desc: 'spear hits both squares straight ahead, piercing (2 dmg)', color: '#ff9f43', zone: [[0, 1], [0, 2]] },
+    rogue: { name: 'Vex', cls: 'Rogue', hp: 3, dmg: 3, ability: 'Flank', desc: 'stabs the squares directly left and right (3 dmg)', color: '#9aa4b5', zone: [[-1, 0], [1, 0]] },
+    guardian: { name: 'Ormund', cls: 'Guardian', hp: 8, dmg: 1, ability: 'Bulwark', desc: 'hits 1 square ahead (1 dmg) and takes enemy hits aimed at allies beside him', color: '#6aa8ff', zone: [[0, 1]], special: 'guard' },
+    bombardier: { name: 'Pip', cls: 'Bombardier', hp: 3, dmg: 2, ability: 'Lob', desc: 'bomb lands 3 ahead and blasts a + of 5 squares (2 dmg); nothing up close', color: '#ff5fa2', zone: [[0, 2], [-1, 3], [0, 3], [1, 3], [0, 4]] },
+    monk: { name: 'Brother Kael', cls: 'Monk', hp: 5, dmg: 1, ability: 'Whirlwind', desc: 'hits all 8 surrounding squares (1 dmg)', color: '#f4f4f4', zone: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]] },
+    druid: { name: 'Fennel', cls: 'Druid', hp: 4, dmg: 0, ability: 'Overgrowth', desc: 'no attack; every 3 turns grows a vine wall in front that blocks enemies for 5 turns', color: '#7ed957', zone: [[0, 1]], special: 'druid' },
+    berserker: { name: 'Hrolf', cls: 'Berserker', hp: 6, dmg: 1, ability: 'Rage', desc: 'hits 1 square ahead for 1 + every HP he is missing', color: '#e8542a', zone: [[0, 1]], special: 'rage' },
+    engineer: { name: 'Gizmo', cls: 'Engineer', hp: 4, dmg: 1, ability: 'Deploy', desc: 'wrench hits 1 ahead (1 dmg); every 4 turns builds a turret in front, inside the zone, if he has none', color: '#4dd2c8', zone: [[0, 1]], special: 'engineer' },
+    turret: { name: 'Turret', cls: 'Construct', hp: 3, dmg: 1, ability: 'Bolt', desc: 'shoots the first enemy up to 5 squares ahead (1 dmg); rolls along with the squad, cannot be repositioned, left behind if stuck', color: '#9fb4c8', zone: [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5]], pierce: false, hidden: true, static: true },
     cleric: { name: 'Sister Ilse', cls: 'Cleric', hp: 4, dmg: 1, ability: 'Sanctify', desc: 'smites foes beside her (1 dmg), heals allies beside her +1', color: '#ffd25a', zone: [[0, 1], [-1, 0], [1, 0], [0, -1]], heal: 1 },
   };
   const ENEMIES = {
@@ -111,7 +151,10 @@
     orc: { name: 'Orc Brute', hp: 6, dmg: 2, pts: 30, rule: 'Heavy hunter — chases the nearest hero, but only moves on even turns. Hits for 2.' },
     golem: { name: 'Stone Golem', hp: 12, dmg: 3, pts: 80, size: 2, elite: true, rule: 'ELITE, 2×2 — hunts the nearest hero every turn and hits for 3. Needs a 2-wide gap to pass; never overlaps walls, items or heroes.' },
   };
+  const DEFAULT_PARTY = ['ranger', 'knight', 'mage', 'cleric'];
+  const dmgOf = (h, d) => (d.special === 'rage' ? d.dmg + (h.maxHp - h.hp) : d.dmg);
   const ITEMS = {
+    vine: { name: 'Vine wall', rule: 'Grown by the Druid. Blocks enemies and heroes; withers after 5 turns.' },
     chest: { name: 'Chest', rule: 'Step on it: +25 gold.' },
     potion: { name: 'Potion', rule: 'Step on it: that hero heals +3.' },
     shrine: { name: 'Shrine', rule: 'Step on it: revives a fallen hero and heals the squad +1.' },
@@ -132,18 +175,19 @@
     return s && /^\d+$/.test(s) ? Number(s) >>> 0 : null;
   }
 
-  function newGame(seed) {
+  function newGame(seed, members = party) {
     S = {
       seed, rng: mulberry32(seed), camR: 0, turn: 1, gold: 0, kills: 0, killPts: 0,
       busy: false, over: false, sel: null, hover: null, nextId: 1,
-      rows: new Map(), heroes: [], enemies: [], items: [], log: [],
+      rows: new Map(), plan: [], heroes: [], enemies: [], items: [], log: [],
     };
     for (let r = 0; r < H; r++) genRow(r);
-    const start = [['ranger', 1, 1], ['knight', 3, 1], ['mage', 2, 0], ['cleric', 4, 0]];
-    for (const [type, x, r] of start) {
+    const slots = [[1, 1], [3, 1], [2, 0], [4, 0]]; // in pick order: front row first
+    members.forEach((type, i) => {
       const d = HEROES[type];
-      S.heroes.push({ id: 'h' + type, kind: 'hero', type, x, r, hp: d.hp, maxHp: d.hp, alive: true });
-    }
+      const [x, r] = slots[i];
+      S.heroes.push({ id: 'h' + type, kind: 'hero', type, x, r, hp: d.hp, maxHp: d.hp, alive: true, cd: 0 });
+    });
     rerollBats();
     $('#ents').innerHTML = ''; $('#fx').innerHTML = ''; els.clear();
     $('#over').classList.remove('show');
@@ -179,7 +223,8 @@
     });
   }
   const itemAt = (x, r) => S.items.find((i) => i.x === x && i.r === r);
-  const aliveHeroes = () => S.heroes.filter((h) => h.alive);
+  const aliveHeroes = () => S.heroes.filter((h) => h.alive); // includes turrets
+  const squad = () => S.heroes.filter((h) => h.alive && !h.static); // the heroes you control
   const visibleEnemies = () => S.enemies.filter((e) => e.hp > 0 && inView(e.r));
   const inZone = (x, r) => x >= 0 && x < W && r >= S.camR && r < S.camR + ZONE;
   // Enemies can't share a cell with terrain, units, or any item except spike traps.
@@ -193,18 +238,107 @@
 
   // ---------- infinite generation ----------
   // Guarantees: rows 0-3 are empty; a row has at most 2 obstacles; two obstacle rows are never adjacent.
-  function genRow(r) {
-    const row = Array(W).fill('.');
-    S.rows.set(r, row);
-    if (r < ZONE + 2) return; // the zone and the two rows ahead start empty
-    const prev = S.rows.get(r - 1);
-    if (!(prev && prev.some((c) => c !== '.')) && rnd() < 0.5) {
-      const n = rnd() < 0.4 ? 2 : 1;
-      for (let i = 0; i < n; i++) {
-        const x = ri(W);
-        row[x] = x === 0 || x === W - 1 ? 'wall' : rnd() < 0.7 ? 'rock' : 'pillar';
+  // ---------- terrain: multi-row structures ----------
+  // Rows are taken from a queue (S.plan) that is refilled one structure at a time. Each structure
+  // stamps a few rows, then one empty "breathing" row follows. A structure is only accepted if every
+  // row keeps an opening at least 2 squares wide and the open squares connect from the row below it
+  // to its top row; otherwise it is re-rolled (and after 6 failures an empty row is used).
+  const blank = (n) => Array.from({ length: n }, () => Array(W).fill('.'));
+  const loose = (x) => (x === 0 || x === W - 1 ? 'wall' : rnd() < 0.7 ? 'rock' : 'pillar');
+  const STRUCTURES = [
+    { name: 'scatter', from: 0, weight: 3, make() { // a few loose rocks
+      const g = blank(2 + ri(2));
+      for (const row of g) if (rnd() < 0.45) { const x = ri(W); row[x] = loose(x); }
+      return { rows: g, items: [] };
+    } },
+    { name: 'rubble', from: 6, weight: 2, make() { // a 3×3 heap of 4–6 rocks
+      const g = blank(3), cx = 1 + ri(W - 2);
+      const cells = []; for (let j = 0; j < 3; j++) for (let i = -1; i <= 1; i++) cells.push([cx + i, j]);
+      g[1][cx] = 'rock';
+      for (const [x, j] of cells.sort(() => rnd() - 0.5).slice(0, 3 + ri(3))) g[j][x] = rnd() < 0.75 ? 'rock' : 'pillar';
+      return { rows: g, items: [] };
+    } },
+    { name: 'ruins', from: 8, weight: 2, make() { // two 2×2 blocks of broken wall
+      const g = blank(4);
+      for (let k = 0; k < 2; k++) {
+        const x = ri(W - 1), j = ri(3);
+        g[j][x] = g[j][x + 1] = g[j + 1][x] = g[j + 1][x + 1] = 'wall';
+      }
+      return { rows: g, items: [] };
+    } },
+    { name: 'wall line', from: 10, weight: 2, make() { // a full-width wall with one or two 2-wide gaps
+      const g = blank(S.camR > 25 && rnd() < 0.5 ? 2 : 1);
+      // one 3-wide gap, or two 2-wide gaps
+      const two = rnd() < 0.5, a = two ? ri(2) : ri(W - 2), b = two ? 4 + ri(2) : -9;
+      for (const row of g) for (let x = 0; x < W; x++) {
+        const open = (x >= a && x < a + (two ? 2 : 3)) || (x >= b && x < b + 2);
+        if (!open) row[x] = 'wall';
+      }
+      return { rows: g, items: [] };
+    } },
+    { name: 'pillar hall', from: 4, weight: 1.5, make() { // two colonnades
+      const g = blank(5);
+      for (const j of [0, 2, 4]) { g[j][1] = 'pillar'; g[j][W - 2] = 'pillar'; }
+      return { rows: g, items: rnd() < 0.4 ? [{ j: 2, x: 3, type: 'potion' }] : [] };
+    } },
+    { name: 'corridor', from: 15, weight: 1.5, make() { // walls down both sides, sometimes pinching to 3 wide
+      const n = 4 + ri(3), g = blank(n), pinch = S.camR > 25 && rnd() < 0.5;
+      for (let j = 0; j < n; j++) {
+        g[j][0] = g[j][W - 1] = 'wall';
+        if (pinch && j > 0 && j < n - 1) g[j][1] = g[j][W - 2] = 'wall';
+      }
+      if (!pinch) { const j = 1 + ri(n - 2); g[j][2 + ri(3)] = 'rock'; }
+      return { rows: g, items: [] };
+    } },
+    { name: 'vault', from: 6, weight: 1, make() { // a walled cell with a door at the bottom and loot inside
+      const g = blank(3), a = ri(W - 2);
+      g[0][a] = g[0][a + 2] = g[1][a] = g[1][a + 2] = g[2][a] = g[2][a + 1] = g[2][a + 2] = 'wall';
+      return { rows: g, items: [{ j: 1, x: a + 1, type: S.camR > 15 && rnd() < 0.3 ? 'shrine' : 'chest' }] };
+    } },
+  ];
+
+  function chunkOk(rows, prev) {
+    for (const row of rows) {
+      let run = 0, best = 0;
+      for (const c of row) { run = c === '.' ? run + 1 : 0; best = Math.max(best, run); }
+      if (best < 2) return false;
+    }
+    const grid = [prev || Array(W).fill('.'), ...rows];
+    const seen = grid.map(() => Array(W).fill(false));
+    const q = [];
+    grid[0].forEach((c, x) => { if (c === '.') { seen[0][x] = true; q.push([x, 0]); } });
+    while (q.length) {
+      const [x, j] = q.shift();
+      for (const [dx, dj] of NEIGH) {
+        const nx = x + dx, nj = j + dj;
+        if (nx < 0 || nx >= W || nj < 0 || nj >= grid.length || seen[nj][nx] || grid[nj][nx] !== '.') continue;
+        seen[nj][nx] = true; q.push([nx, nj]);
       }
     }
+    return seen[grid.length - 1].some(Boolean);
+  }
+
+  function planStructure(r) {
+    const pool = STRUCTURES.filter((st) => r >= st.from);
+    for (let tries = 0; tries < 6; tries++) {
+      let roll = rnd() * pool.reduce((a, st) => a + st.weight, 0), st = pool[0];
+      for (const c of pool) { roll -= c.weight; if (roll <= 0) { st = c; break; } }
+      const { rows, items } = st.make();
+      if (!chunkOk(rows, S.rows.get(r - 1))) continue;
+      rows.forEach((row, j) => S.plan.push({ row, items: items.filter((it) => it.j === j) }));
+      S.plan.push({ row: Array(W).fill('.'), items: [] });
+      return;
+    }
+    S.plan.push({ row: Array(W).fill('.'), items: [] });
+  }
+
+  function genRow(r) {
+    if (r < ZONE + 2) { S.rows.set(r, Array(W).fill('.')); return; } // the zone and two rows ahead start empty
+    if (!S.plan.length) planStructure(r);
+    const next = S.plan.shift();
+    const row = next.row;
+    S.rows.set(r, row);
+    for (const it of next.items) S.items.push({ id: 'i' + S.nextId++, kind: 'item', type: it.type, x: it.x, r, up: false, dir: 1 });
     const freeX = () => {
       const opts = [];
       for (let x = 0; x < W; x++) if (row[x] === '.' && !enemyAt(x, r) && !itemAt(x, r)) opts.push(x);
@@ -257,6 +391,7 @@
   function cull() {
     S.enemies = S.enemies.filter((e) => e.r >= S.camR);
     S.items = S.items.filter((i) => i.r >= S.camR);
+    S.heroes = S.heroes.filter((h) => !h.static || (h.alive && h.r >= S.camR));
     for (const r of S.rows.keys()) if (r < S.camR - 1) S.rows.delete(r);
   }
 
@@ -364,7 +499,7 @@
 
   // ---------- turn resolution ----------
   function tryMove(dir) {
-    if (S.busy || S.over) return;
+    if (S.busy || S.over || partyOpen) return;
     const [dx, dr] = DIRV[dir];
     if (dir !== 'hold') {
       const memo = new Map();
@@ -374,17 +509,21 @@
         memo.set(h, false);
         const nx = h.x + dx, nr = h.r + dr;
         const it = itemAt(nx, nr);
-        let ok = !solid(nx, nr) && !enemyAt(nx, nr) && !(it && it.type === 'boulder');
+        let ok = !solid(nx, nr) && !enemyAt(nx, nr) && !(it && (it.type === 'boulder' || it.type === 'vine'));
         if (!ok) cause.set(h, enemyAt(nx, nr) ? 'enemy' : 'terrain');
-        else { const o = heroAt(nx, nr); if (o) { ok = can(o); if (!ok) cause.set(h, cause.get(o)); } }
+        else {
+          const o = heroAt(nx, nr);
+          if (o) { ok = can(o); if (!ok) cause.set(h, cause.get(o)); }
+        }
         memo.set(h, ok);
         return ok;
       };
-      const all = aliveHeroes();
+      const all = aliveHeroes(); // turrets travel with the squad too
       const stuck = all.filter((h) => !can(h));
       // A stuck hero may stay behind while the rest move, unless it is at the border of the world:
       // on the bottom row when advancing (it would scroll off the map) or pressed against a side wall.
-      const pinned = stuck.filter((h) => (dir === 'up' ? h.r === S.camR : terrain(h.x + dx, h.r) === 'edge'));
+      // A stuck turret never stops the squad: it is simply left behind (and scrolls away).
+      const pinned = stuck.filter((h) => !h.static && (dir === 'up' ? h.r === S.camR : terrain(h.x + dx, h.r) === 'edge'));
       const movers = all.filter((h) => !stuck.includes(h));
       // Held by an enemy on the bottom row: the rest still advance (and the held hero stays and
       // attacks) if they can do it inside the zone, so the view doesn't scroll and nobody is lost.
@@ -395,7 +534,7 @@
         note = 'advancing the others would take them past the deployment zone';
       }
       if (pinned.length) return refuse(dir, stuck, pinned, note);
-      if (!movers.length) {
+      if (!movers.some((h) => !h.static)) {
         // Nobody can move. Blocked by an enemy: the turn still happens — they stand and attack.
         // Blocked only by terrain: refuse, so a pointless press never wastes a turn.
         if (stuck.some((h) => cause.get(h) === 'enemy')) return runTurn(dir, { dx, dr, movers, stuck, noScroll: true });
@@ -456,7 +595,7 @@
     if (heroes.length) {
       for (const h of heroes) {
         const it = itemAt(h.x, h.r);
-        if (!it) continue;
+        if (!it || h.static) continue; // turrets roll over pickups without using them
         const nm = HEROES[h.type].name;
         if (it.type === 'chest') { S.gold += 25; floatText(h.x, h.r, '+25g', 'gold'); log('move', `${nm} opens a chest: +25 gold.`, 'gold'); removeItem(it); }
         else if (it.type === 'potion') { const g = heal(h, 3); log('move', `${nm} drinks a potion: +${g} HP.`, 'good'); removeItem(it); }
@@ -473,6 +612,9 @@
     for (const h of aliveHeroes()) {
       if (!h.alive) continue;
       const d = HEROES[h.type];
+      if (d.special === 'druid' || d.special === 'engineer') struck = (await specialAction(h, d)) || struck;
+      if (d.special === 'druid') continue; // the druid builds instead of attacking
+      const dmg = dmgOf(h, d);
       const cells = d.zone.map(([ox, or]) => [h.x + ox, h.r + or]).filter(([x, r]) => x >= 0 && x < W && inView(r));
       // Zones hit everything in them, except non-piercing shots (the ranger): those stop at the
       // first enemy or obstacle along the line, nearest first.
@@ -489,7 +631,7 @@
       struck = true;
       strikeFx(h, d, cells, targets);
       await sleep(170);
-      for (const e of targets) { log('strike', `${d.name} → ${ENEMIES[e.type].name}: −${d.dmg}.`); damage(e, d.dmg); }
+      for (const e of targets) { log('strike', `${d.name} → ${ENEMIES[e.type].name}: −${dmg}.`); damage(e, dmg); }
       for (const a of heals) { heal(a, d.heal); log('strike', `${d.name} heals ${HEROES[a.type].name}: +${d.heal}.`, 'good'); }
       render();
       await sleep(330);
@@ -500,7 +642,7 @@
     setPhase(4);
     const order = visibleEnemies().sort((a, b) => a.r - b.r || a.x - b.x);
     for (const e of order) {
-      if (e.hp <= 0 || !aliveHeroes().length) continue;
+      if (e.hp <= 0 || !squad().length) continue;
       const p = plan(e);
       if (p.dir !== undefined) e.dir = p.dir;
       if (p.flee !== undefined) e.flee = p.flee;
@@ -514,8 +656,15 @@
         attackerGlow(e.id, '#ff4a3a');
         flashCells(path, '#ff4a3a');
         await sleep(150);
-        damage(p.hero, e.dmg);
-        log('enemy', `${en} ${p.ranged ? 'shoots' : 'hits'} ${HEROES[p.hero.type].name}: −${e.dmg}.` + (e.type === 'bat' ? ' It flees upward.' : ''), 'bad');
+        let target = p.hero;
+        const guard = S.heroes.find((g) => g.alive && g !== target && HEROES[g.type].special === 'guard' && Math.abs(g.x - target.x) + Math.abs(g.r - target.r) === 1);
+        if (guard) {
+          log('enemy', `${HEROES[guard.type].name} shields ${HEROES[target.type].name}.`, 'good');
+          flashCells([[guard.x, guard.r]], HEROES.guardian.color);
+          target = guard;
+        }
+        damage(target, e.dmg);
+        log('enemy', `${en} ${p.ranged ? 'shoots' : 'hits'} ${HEROES[target.type].name}: −${e.dmg}.` + (e.type === 'bat' ? ' It flees upward.' : ''), 'bad');
         await sleep(260);
       }
     }
@@ -534,6 +683,9 @@
           const u = heroAt(it.x, it.r) || enemyAt(it.x, it.r);
           if (u) { damage(u, 1); log('world', `Spikes rise under ${unitName(u)}: −1.`, u.kind === 'hero' ? 'bad' : ''); }
         }
+      } else if (it.type === 'vine') {
+        worldActed = true;
+        if (--it.ttl <= 0) { removeItem(it); log('world', 'A vine wall withers.'); }
       } else if (it.type === 'boulder') {
         worldActed = true;
         const nx = it.x + it.dir;
@@ -548,11 +700,36 @@
     S.turn++;
     rerollBats();
     showLog();
-    if (!aliveHeroes().length) return gameOver();
+    if (!squad().length) return gameOver();
     S.busy = false;
     setPhase(1);
     setStatus(dir === 'up' ? `Depth ${S.camR}. Your move.` : 'Your move.');
     render();
+  }
+
+  // Druid grows a vine wall / engineer builds a turret in the square in front. Returns true if it acted.
+  async function specialAction(h, d) {
+    if (d.special === 'engineer' && S.heroes.some((t) => t.static && t.owner === h.id)) return false;
+    if (h.cd > 0) { h.cd--; return false; }
+    const x = h.x, r = h.r + 1;
+    const open = inView(r) && !solid(x, r) && !heroAt(x, r) && !enemyAt(x, r) && !itemAt(x, r);
+    if (!open || (d.special === 'engineer' && !inZone(x, r))) return false; // try again next turn
+    if (d.special === 'druid') {
+      S.items.push({ id: 'i' + S.nextId++, kind: 'item', type: 'vine', x, r, ttl: 5 });
+      h.cd = 2;
+      log('strike', `${d.name} grows a vine wall.`, 'good');
+    } else {
+      const t = HEROES.turret;
+      S.heroes.push({ id: 'hturret' + S.nextId++, kind: 'hero', type: 'turret', static: true, owner: h.id, x, r, hp: t.hp, maxHp: t.hp, alive: true });
+      h.cd = 3;
+      log('strike', `${d.name} deploys a turret.`, 'good');
+    }
+    attackerGlow(h.id, d.color);
+    floatText(h.x, h.r, d.ability, 'skill', d.color);
+    flashCells([[x, r]], d.color, new Set([x + ',' + r]));
+    render();
+    await sleep(380);
+    return true;
   }
 
   const unitName = (u) => (u.kind === 'hero' ? HEROES[u.type].name : ENEMIES[u.type].name);
@@ -562,7 +739,10 @@
     floatText(u.x, u.r, '−' + n);
     hitFx(u.id);
     if (u.hp > 0) return;
-    if (u.kind === 'hero') {
+    if (u.kind === 'hero' && u.static) {
+      S.heroes = S.heroes.filter((x) => x !== u);
+      log('death', 'A turret is destroyed.', 'bad');
+    } else if (u.kind === 'hero') {
       u.hp = 0; u.alive = false;
       log('death', `${HEROES[u.type].name} has fallen!`, 'bad');
       buildSquad();
@@ -591,7 +771,7 @@
   }
 
   function useShrine(h) {
-    const dead = S.heroes.find((x) => !x.alive);
+    const dead = S.heroes.find((x) => !x.alive && !x.static);
     let msg = `${HEROES[h.type].name} prays at the shrine: squad +1 HP`;
     if (dead) {
       let spot = null;
@@ -763,7 +943,7 @@
       if (!c) continue;
       c.querySelector('.hpwrap').innerHTML = pipHtml(h.hp, h.maxHp).replace('</div>', `<span class="hpnum">${h.hp}/${h.maxHp}</span></div>`);
     }
-    const alive = aliveHeroes().length;
+    const alive = squad().length;
     $('#aliveCount').textContent = `${alive} ${alive === 1 ? 'HERO' : 'HEROES'}`;
     // in-sight list
     const types = new Map();
@@ -779,11 +959,9 @@
 
   function buildSquad() {
     let html = '';
-    for (const h of S.heroes) {
+    for (const h of S.heroes.filter((x) => !x.static)) {
       const d = HEROES[h.type];
-      const zone = new Set(d.zone.map(([x, y]) => `${x},${y}`));
-      let mini = '';
-      for (let y = 4; y >= -1; y--) for (let x = -2; x <= 2; x++) mini += `<i class="${x === 0 && y === 0 ? 'h' : zone.has(`${x},${y}`) ? 'a' : ''}"></i>`;
+      const mini = miniGrid(d);
       html += `<div class="card${h.alive ? '' : ' dead'}" data-id="${h.id}">
         <div class="icon">${ART[h.type]}</div>
         <div><div class="nm">${d.name}</div><div class="cl caps">${d.cls}${h.alive ? '' : ' · fallen'}</div><div class="hpwrap"></div></div>
@@ -796,6 +974,14 @@
       c.addEventListener('mouseleave', () => { S.hover = null; renderOverlay(); });
       c.addEventListener('click', () => clickHero(c.dataset.id));
     }
+  }
+
+  function miniGrid(d) {
+    const zone = new Set(d.zone.map(([x, y]) => `${x},${y}`));
+    let mini = '';
+    for (let y = 4; y >= -1; y--) for (let x = -2; x <= 2; x++)
+      mini += `<i class="${x === 0 && y === 0 ? 'h' : zone.has(`${x},${y}`) ? (d.special === 'druid' ? 'v' : 'a') : ''}"></i>`;
+    return mini;
   }
 
   function highlightCard() {
@@ -890,7 +1076,7 @@
   // ---------- input ----------
   function clickHero(id) {
     if (S.busy || S.over) return;
-    const h = S.heroes.find((x) => x.id === id && x.alive);
+    const h = S.heroes.find((x) => x.id === id && x.alive && !x.static);
     if (!h) return;
     if (!S.sel) { S.sel = id; setStatus(`${HEROES[h.type].name} selected — click a gold + square to move, or another hero to swap.`); }
     else if (S.sel === id) { S.sel = null; setStatus('Your move.'); }
@@ -928,7 +1114,7 @@
   function startDrag(ev, id, el) {
     if (S.busy || S.over || ev.button > 0) return;
     ev.preventDefault();
-    const h = S.heroes.find((x) => x.id === id && x.alive);
+    const h = S.heroes.find((x) => x.id === id && x.alive && !x.static);
     if (!h) return;
     const sx = ev.clientX, sy0 = ev.clientY;
     let ghost = null, hot = null;
@@ -960,7 +1146,7 @@
       S.hover = null;
       const c = e.type === 'pointerup' && cellAtPoint(e.clientX, e.clientY);
       const other = c && heroAt(c[0], c[1]);
-      if (c && other && other !== h) return swapHeroes(h, other);
+      if (c && other && other !== h && !other.static) return swapHeroes(h, other);
       if (c && zoneOpen(c[0], c[1]) && !heroAt(c[0], c[1])) return repositionHero(h, c[0], c[1]);
       S.sel = null;
       setStatus('Drop cancelled — nothing moved.');
@@ -979,12 +1165,65 @@
   $('#bUp').addEventListener('click', () => tryMove('up'));
   $('#bHold').addEventListener('click', () => tryMove('hold'));
   const again = () => newGame((Math.random() * 2 ** 32) >>> 0);
-  $('#newRun').addEventListener('click', again);
+  $('#newRun').addEventListener('click', () => openParty());
   $('#oAgain').addEventListener('click', again);
+  $('#oParty').addEventListener('click', () => openParty());
+
+  // ---------- party select (start screen) ----------
+  const PICKABLE = Object.keys(HEROES).filter((k) => !HEROES[k].hidden);
+  function loadParty() {
+    try {
+      const p = JSON.parse(localStorage.getItem('tilebound.party'));
+      if (Array.isArray(p) && p.length === 4 && new Set(p).size === 4 && p.every((k) => HEROES[k] && !HEROES[k].hidden)) return p;
+    } catch { /* storage unavailable or corrupt */ }
+    return [...DEFAULT_PARTY];
+  }
+  let party = loadParty(), picks = [], partyOpen = false, firstRun = true;
+
+  function openParty() {
+    picks = [...party]; partyOpen = true;
+    $('#over').classList.remove('show');
+    renderParty();
+    $('#party').classList.add('show');
+  }
+  function renderParty() {
+    $('#pgrid').innerHTML = PICKABLE.map((k) => {
+      const d = HEROES[k], i = picks.indexOf(k);
+      return `<button class="pcard${i >= 0 ? ' on' : ''}" data-k="${k}" style="--c:${d.color}">
+        ${i >= 0 ? `<span class="pnum">${i + 1}</span>` : ''}
+        <div class="icon">${ART[k]}</div>
+        <div><div class="nm">${d.name}</div><div class="cl caps">${d.cls} · ${d.hp} HP</div></div>
+        <div class="mini">${miniGrid(d)}</div>
+        <div class="ab"><b>${d.ability}</b> — ${d.desc}</div></button>`;
+    }).join('');
+    $('#pCount').textContent = `${picks.length} / 4 chosen`;
+    $('#pGo').disabled = picks.length !== 4;
+    $('#pgrid').classList.toggle('full', picks.length === 4);
+  }
+  $('#pgrid').addEventListener('click', (ev) => {
+    const b = ev.target.closest('.pcard');
+    if (!b) return;
+    const i = picks.indexOf(b.dataset.k);
+    if (i >= 0) picks.splice(i, 1); else if (picks.length < 4) picks.push(b.dataset.k);
+    renderParty();
+  });
+  $('#pDefault').addEventListener('click', () => { picks = [...DEFAULT_PARTY]; renderParty(); });
+  function startRun() {
+    if (picks.length !== 4) return;
+    party = [...picks];
+    try { localStorage.setItem('tilebound.party', JSON.stringify(party)); } catch { /* storage unavailable */ }
+    partyOpen = false;
+    $('#party').classList.remove('show');
+    const seed = firstRun && urlSeed() !== null ? urlSeed() : (Math.random() * 2 ** 32) >>> 0;
+    firstRun = false;
+    newGame(seed, party);
+  }
+  $('#pGo').addEventListener('click', startRun);
 
   document.addEventListener('keydown', (ev) => {
     if (ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     const k = ev.key.toLowerCase();
+    if (partyOpen) { if (k === 'enter') startRun(); return; }
     const map = { w: 'up', arrowup: 'up', a: 'left', arrowleft: 'left', d: 'right', arrowright: 'right', ' ': 'hold', s: 'hold', arrowdown: 'hold' };
     if (map[k]) { ev.preventDefault(); tryMove(map[k]); }
     else if (k === 'escape' && S.sel) { S.sel = null; render(); highlightCard(); }
@@ -992,8 +1231,9 @@
   });
 
   buildFloor();
-  newGame(urlSeed() ?? ((Math.random() * 2 ** 32) >>> 0));
+  newGame(urlSeed() ?? ((Math.random() * 2 ** 32) >>> 0)); // a board behind the start screen
+  openParty();
 
   // Small hook for debugging / automated checks in the console.
-  window.tilebound = { get state() { return S; }, newGame, tryMove };
+  window.tilebound = { get state() { return S; }, newGame, tryMove, openParty, startRun, get party() { return party; }, genRow: (r) => genRow(r) };
 })();
