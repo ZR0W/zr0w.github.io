@@ -92,9 +92,9 @@
   // ---------- definitions ----------
   // Attack zones are [dx, dr] offsets from the hero; dr > 0 is forward (up the screen).
   const HEROES = {
-    knight: { name: 'Brannoc', cls: 'Knight', hp: 6, dmg: 2, ability: 'Cleave', desc: 'hits the 3 squares in front (2 dmg)', color: '#ff6b5b', zone: [[-1, 1], [0, 1], [1, 1]] },
-    ranger: { name: 'Wren', cls: 'Ranger', hp: 4, dmg: 1, ability: 'Longshot', desc: 'hits 4 squares straight ahead (1 dmg)', color: '#5cd67e', zone: [[0, 1], [0, 2], [0, 3], [0, 4]] },
-    mage: { name: 'Ozric', cls: 'Mage', hp: 3, dmg: 2, ability: 'Arc Flame', desc: 'hits both diagonals, 2 deep (2 dmg)', color: '#b48cff', zone: [[-1, 1], [1, 1], [-2, 2], [2, 2]] },
+    knight: { name: 'Brannoc', cls: 'Knight', hp: 6, dmg: 2, ability: 'Cleave', desc: 'hits every enemy in the 3 squares in front (2 dmg)', color: '#ff6b5b', zone: [[-1, 1], [0, 1], [1, 1]] },
+    ranger: { name: 'Wren', cls: 'Ranger', hp: 4, dmg: 1, ability: 'Longshot', desc: 'shoots the first enemy up to 4 squares straight ahead (1 dmg); no piercing, obstacles block', pierce: false, color: '#5cd67e', zone: [[0, 1], [0, 2], [0, 3], [0, 4]] },
+    mage: { name: 'Ozric', cls: 'Mage', hp: 3, dmg: 2, ability: 'Arc Flame', desc: 'hits every enemy on both diagonals, 2 deep (2 dmg)', color: '#b48cff', zone: [[-1, 1], [1, 1], [-2, 2], [2, 2]] },
     cleric: { name: 'Sister Ilse', cls: 'Cleric', hp: 4, dmg: 1, ability: 'Sanctify', desc: 'smites foes beside her (1 dmg), heals allies beside her +1', color: '#ffd25a', zone: [[0, 1], [-1, 0], [1, 0], [0, -1]], heal: 1 },
   };
   const ENEMIES = {
@@ -415,7 +415,16 @@
       if (!h.alive) continue;
       const d = HEROES[h.type];
       const cells = d.zone.map(([ox, or]) => [h.x + ox, h.r + or]).filter(([x, r]) => x >= 0 && x < W && inView(r));
-      const targets = cells.map(([x, r]) => enemyAt(x, r)).filter(Boolean);
+      // Zones hit everything in them, except non-piercing shots (the ranger): those stop at the
+      // first enemy or obstacle along the line, nearest first.
+      let targets = [];
+      if (d.pierce === false) {
+        for (const [x, r] of cells) {
+          if (solid(x, r)) break;
+          const e = enemyAt(x, r);
+          if (e) { targets = [e]; break; }
+        }
+      } else targets = cells.map(([x, r]) => enemyAt(x, r)).filter(Boolean);
       const heals = d.heal ? cells.map(([x, r]) => heroAt(x, r)).filter((a) => a && a.hp < a.maxHp) : [];
       if (!targets.length && !heals.length) continue;
       struck = true;
