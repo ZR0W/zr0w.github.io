@@ -468,7 +468,7 @@
         if (it.type === 'chest') { const g = window.TILEBOUND.SCORING.chestGold; S.gold += g; floatText(h.x, h.r, `+${g}g`, 'gold'); log('move', `${nm} opens a chest: +${g} gold.`, 'gold'); removeItem(it); }
         else if (it.type === 'potion') { const g = heal(h, 3); log('move', `${nm} drinks a potion: +${g} HP.`, 'good'); removeItem(it); }
         else if (it.type === 'shrine') { useShrine(h); removeItem(it); }
-        else if (it.type === 'spikes' && it.up) { damage(h, 1); log('move', `${nm} steps on raised spikes: −1.`, 'bad'); }
+        else if (it.type === 'spikes' && it.up) { log('move', `${nm} steps on raised spikes: −1.`, 'bad'); damage(h, 1); }
       }
       render();
     }
@@ -531,8 +531,8 @@
           flashCells([[guard.x, guard.r]], HEROES.guardian.color);
           target = guard;
         }
-        damage(target, e.dmg);
         log('enemy', `${en} ${p.ranged ? 'shoots' : 'hits'} ${HEROES[target.type].name}: −${e.dmg}.` + (e.type === 'bat' ? ' It flees upward.' : ''), 'bad');
+        damage(target, e.dmg); // after the log line, so "X has fallen!" reads after the hit
         await sleep(260);
       }
     }
@@ -549,7 +549,7 @@
         it.up = !it.up; worldActed = true;
         if (it.up) {
           const u = heroAt(it.x, it.r) || enemyAt(it.x, it.r);
-          if (u) { damage(u, 1); log('world', `Spikes rise under ${unitName(u)}: −1.`, u.kind === 'hero' ? 'bad' : ''); }
+          if (u) { log('world', `Spikes rise under ${unitName(u)}: −1.`, u.kind === 'hero' ? 'bad' : ''); damage(u, 1); }
         }
       } else if (it.type === 'vine') {
         worldActed = true;
@@ -558,7 +558,7 @@
         worldActed = true;
         const nx = it.x + it.dir;
         const u = heroAt(nx, it.r) || enemyAt(nx, it.r);
-        if (u) { damage(u, 2); bump(it, u); it.dir = -it.dir; log('world', `Boulder slams into ${unitName(u)}: −2.`, u.kind === 'hero' ? 'bad' : ''); }
+        if (u) { log('world', `Boulder slams into ${unitName(u)}: −2.`, u.kind === 'hero' ? 'bad' : ''); damage(u, 2); bump(it, u); it.dir = -it.dir; }
         else if (solid(nx, it.r) || itemAt(nx, it.r)) it.dir = -it.dir;
         else it.x = nx;
       }
