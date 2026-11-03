@@ -201,7 +201,7 @@
       <h2 class="display">Your Squad <small id="aliveCount">4 HEROES</small></h2>
       <div id="squad"></div>
       <div class="hint">Hover (or tap) a hero to see its <b>attack zone</b> in blue. Forward is up.<br>
-        Click a hero, then a <b style="color:var(--gold)">gold +</b> square to reposition (click another hero to swap). Rearranging is free.</div>
+        Click a hero, then a <b style="color:var(--gold)">gold +</b> square to reposition (click another hero to swap). A reposition <b>spends a turn</b>: heroes strike and enemies act.</div>
     </div>
   </section>
 
@@ -213,14 +213,14 @@
       <div class="layer" id="ovl"></div>
       <div class="layer" id="fx"></div>
     </div></div>
-    <div class="zonelabel caps"><i></i>Deployment zone — rearrange freely before you move</div>
+    <div class="zonelabel caps"><i></i>Deployment zone — repositioning a hero spends a turn</div>
     <div class="controls">
       <button id="bLeft">← Left<kbd>A</kbd></button>
       <button id="bUp" class="fwd">↑ Forward<kbd>W</kbd></button>
       <button id="bRight">Right →<kbd>D</kbd></button>
       <button id="bHold" class="hold">Hold &amp; strike<kbd>Space</kbd></button>
     </div>
-    <div id="status">Arrange phase — tap a hero, then a gold square to reposition. Then pick a direction.</div>
+    <div id="status">Pick a direction — or tap a hero, then a gold square, to reposition it (costs a turn).</div>
   </section>
 
   <section class="right">
@@ -236,8 +236,8 @@
     <div class="panel">
       <h2 class="display">Each Turn</h2>
       <ol class="phases" id="phases">
-        <li data-p="1" class="on"><span>1</span><b>Arrange</b><small>Shuffle heroes inside the gold zone (free)</small></li>
-        <li data-p="2"><span>2</span><b>Move</b><small>Forward, left, right or hold — this commits</small></li>
+        <li data-p="1" class="on"><span>1</span><b>Choose</b><small>Pick a direction, hold, or reposition one hero</small></li>
+        <li data-p="2"><span>2</span><b>Move</b><small>Squad moves; a hero blocked by an obstacle stays behind</small></li>
         <li data-p="3"><span>3</span><b>Heroes strike</b><small>Every enemy in an attack zone is hit</small></li>
         <li data-p="4"><span>4</span><b>Enemies act</b><small>All visible foes follow their rule</small></li>
         <li data-p="5"><span>5</span><b>World acts</b><small>Traps toggle, boulders roll</small></li>

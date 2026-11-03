@@ -5,9 +5,11 @@
 // of the view are the deployment zone, and the squad always lives there. Moving forward shifts every
 // hero and the camera up one row and generates a fresh row at the top.
 //
-// A turn: (1) arrange (free, not a turn) → (2) move → (3) heroes strike → (4) visible enemies act →
-// (5) interactables act. A blocked move is all-or-nothing: nothing moves, the board shakes, the
-// heroes that can't move jiggle, and no turn passes. "Hold" always succeeds, so the game can't lock up.
+// A turn: (1) choose — move, hold, or reposition one hero in the zone (repositioning spends the turn) →
+// (2) move → (3) heroes strike → (4) visible enemies act → (5) interactables act.
+// A hero blocked by an obstacle stays behind while the rest of the squad moves. If a blocked hero is at
+// the border of the world (bottom row when advancing, or against a side wall) nothing moves: the board
+// shakes, the stuck heroes jiggle, and no turn passes. "Hold" always succeeds, so the game can't lock up.
 (() => {
   'use strict';
 
@@ -133,7 +135,7 @@
     rerollBats();
     $('#ents').innerHTML = ''; $('#fx').innerHTML = ''; els.clear();
     $('#over').classList.remove('show');
-    setStatus('Arrange phase — tap a hero, then a gold square to reposition. Then pick a direction.');
+    setStatus('Pick a direction — or tap a hero, then a gold square, to reposition it (costs a turn).');
     $('#log').innerHTML = '<li>Nothing yet — make your first move.</li>'; $('#logTurn').textContent = '';
     setPhase(1);
     buildSquad();
@@ -311,43 +313,62 @@
         memo.set(h, ok);
         return ok;
       };
-      const blocked = aliveHeroes().filter((h) => !can(h));
-      if (blocked.length) return refuse(dir, blocked);
+      const all = aliveHeroes();
+      const stuck = all.filter((h) => !can(h));
+      // A stuck hero may stay behind while the rest move, unless it is at the border of the world:
+      // on the bottom row when advancing (it would scroll off the map) or pressed against a side wall.
+      const pinned = stuck.filter((h) => (dir === 'up' ? h.r === S.camR : terrain(h.x + dx, h.r) === 'edge'));
+      if (pinned.length || stuck.length === all.length) return refuse(dir, stuck, pinned);
+      return runTurn(dir, { dx, dr, movers: all.filter((h) => !stuck.includes(h)), stuck });
     }
-    runTurn(dir, dx, dr);
+    runTurn('hold');
   }
 
-  function refuse(dir, blocked) {
-    const board = $('#board');
-    board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake');
-    for (const h of blocked) {
+  function jiggle(heroes) {
+    for (const h of heroes) {
       const el = els.get(h.id);
       if (!el) continue;
       el.classList.remove('jiggle'); void el.offsetWidth; el.classList.add('jiggle');
     }
-    setTimeout(() => { board.classList.remove('shake'); for (const h of blocked) els.get(h.id)?.classList.remove('jiggle'); }, 420);
-    const names = blocked.map((h) => HEROES[h.type].name).join(', ');
+    setTimeout(() => { for (const h of heroes) els.get(h.id)?.classList.remove('jiggle'); }, 420);
+  }
+
+  function refuse(dir, blocked, pinned) {
+    const board = $('#board');
+    board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake');
+    setTimeout(() => board.classList.remove('shake'), 420);
+    jiggle(blocked);
+    const names = (hs) => hs.map((h) => HEROES[h.type].name).join(', ');
     const word = { up: 'forward', left: 'left', right: 'right' }[dir];
-    setStatus(`Blocked — ${names} can't move ${word}. Nothing moved and no turn passed. Rearrange, pick another direction, or hold.`, true);
+    const why = !pinned.length ? `${names(blocked)} can't move ${word}`
+      : dir === 'up' ? `${names(pinned)} can't advance from the back row and would be left off the map`
+      : `${names(pinned)} ${pinned.length === 1 ? 'is' : 'are'} against the edge of the world`;
+    setStatus(`Blocked — ${why}. Nothing moved and no turn passed. Reposition someone, pick another direction, or hold.`, true);
   }
 
   function log(phase, text, cls = '') { S.log.push({ phase, text, cls }); }
 
-  async function runTurn(dir, dx, dr) {
+  // dir: 'up' | 'left' | 'right' (squad moves; opts.movers move, opts.stuck stay put),
+  // 'hold', or 'arrange' (a reposition was already applied; opts.text describes it).
+  async function runTurn(dir, opts = {}) {
     S.busy = true; S.sel = null; S.log = [];
-    setButtons();
+    setButtons(); highlightCard();
     // 2. move
     setPhase(2);
-    const heroes = aliveHeroes();
+    const heroes = opts.movers || [];
+    const stuck = opts.stuck || [];
     if (dir === 'hold') log('move', 'Squad holds position.');
+    else if (dir === 'arrange') log('move', opts.text);
     else {
-      for (const h of heroes) { h.x += dx; h.r += dr; }
+      for (const h of heroes) { h.x += opts.dx; h.r += opts.dr; }
       if (dir === 'up') { S.camR++; genRow(topRow()); cull(); log('move', `Squad advances to depth ${S.camR}.`); }
       else log('move', `Squad sidesteps ${dir}.`);
+      for (const h of stuck) log('move', `${HEROES[h.type].name} is blocked and stays behind.`, 'bad');
     }
     render();
+    if (stuck.length) jiggle(stuck);
     await sleep(230);
-    if (dir !== 'hold') {
+    if (heroes.length) {
       for (const h of heroes) {
         const it = itemAt(h.x, h.r);
         if (!it) continue;
@@ -432,7 +453,7 @@
     if (!aliveHeroes().length) return gameOver();
     S.busy = false;
     setPhase(1);
-    setStatus(dir === 'up' ? `Depth ${S.camR}. Arrange, then move.` : 'Arrange, then move.');
+    setStatus(dir === 'up' ? `Depth ${S.camR}. Your move.` : 'Your move.');
     render();
   }
 
@@ -733,12 +754,11 @@
     const h = S.heroes.find((x) => x.id === id && x.alive);
     if (!h) return;
     if (!S.sel) { S.sel = id; setStatus(`${HEROES[h.type].name} selected — click a gold + square to move, or another hero to swap.`); }
-    else if (S.sel === id) { S.sel = null; setStatus('Arrange, then move.'); }
+    else if (S.sel === id) { S.sel = null; setStatus('Your move.'); }
     else {
       const a = S.heroes.find((x) => x.id === S.sel);
       [a.x, a.r, h.x, h.r] = [h.x, h.r, a.x, a.r];
-      setStatus(`Swapped ${HEROES[a.type].name} and ${HEROES[h.type].name}.`);
-      S.sel = null;
+      return runTurn('arrange', { text: `${HEROES[a.type].name} and ${HEROES[h.type].name} swap places.` });
     }
     render(); highlightCard();
   }
@@ -749,9 +769,7 @@
     const h = S.heroes.find((x) => x.id === S.sel);
     if (!h) return;
     h.x = Number(t.dataset.x); h.r = Number(t.dataset.r);
-    S.sel = null;
-    setStatus(`${HEROES[h.type].name} repositioned.`);
-    render(); highlightCard();
+    runTurn('arrange', { text: `${HEROES[h.type].name} repositions.` });
   });
   document.addEventListener('click', (ev) => {
     if (S.sel && !ev.target.closest('.ent.hero, .ov.target, .card, .controls')) { S.sel = null; render(); highlightCard(); }
