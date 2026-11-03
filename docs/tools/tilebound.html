@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilebound – Webtools</title>
+<!-- Full-page game UI: Simple.css is intentionally omitted (its typography and button styles fight the board),
+     same as niu-lai-world.html. All art is inline SVG drawn in tilebound.js. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;600&family=Grenze+Gotisch:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1a1814; --panel: #24211c; --panel2: #2c2822; --line: #3d372e; --text: #ece4d3; --muted: #a39a88;
+    --gold: #f0a93b; --hero: #4f8be3; --enemy: #e8743a; --cream: #f1e6cf; --hp: #d8453b; --heal: #5cc77a;
+    --cell: min(60px, calc((100vw - 40px) / 7));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Barlow, system-ui, sans-serif; }
+  body { min-height: 100vh; -webkit-user-select: none; user-select: none; }
+  a { color: var(--gold); }
+  .display { font-family: "Grenze Gotisch", Georgia, serif; font-weight: 600; letter-spacing: .5px; }
+  .caps { font-family: "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+
+  header { display: flex; align-items: center; gap: 18px; padding: 10px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 34px; color: var(--gold); }
+  header .sub { color: var(--muted); font-size: 15px; }
+  header .spacer { flex: 1; }
+  header .stat { text-align: right; line-height: 1.05; }
+  header .stat small { display: block; color: var(--muted); font-size: 11px; }
+  header .stat b { font-family: "Barlow Condensed", sans-serif; font-size: 26px; }
+  header .stat.score b { color: var(--gold); }
+  .back { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--text); }
+
+  main { display: grid; grid-template-columns: 270px auto 290px; gap: 22px; padding: 16px 20px 28px; justify-content: center; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .panel h2 { margin: 0 0 10px; font-size: 24px; }
+  .panel h2 small { float: right; font-family: "Barlow Condensed", sans-serif; font-size: 12px; color: var(--muted); letter-spacing: 1.5px; margin-top: 8px; }
+
+  /* squad cards */
+  .card { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); margin-bottom: 10px; cursor: pointer; }
+  .card:hover, .card.on { border-color: var(--gold); }
+  .card.dead { opacity: .38; filter: grayscale(1); }
+  .card .icon { width: 48px; height: 48px; border-radius: 8px; background: var(--cream); border: 2px solid var(--hero); padding: 3px; }
+  .card .icon svg { width: 100%; height: 100%; display: block; }
+  .card .nm { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 19px; line-height: 1; }
+  .card .cl { font-size: 11px; color: var(--muted); margin: 2px 0 4px; }
+  .card .ab { font-size: 12px; color: var(--muted); grid-column: 1 / 3; line-height: 1.3; }
+  .card .ab b { color: var(--text); }
+  .pips { display: flex; gap: 3px; flex-wrap: wrap; }
+  .pips i { width: 9px; height: 9px; border-radius: 2px; background: var(--hp); display: block; }
+  .pips i.e { background: transparent; box-shadow: inset 0 0 0 1.5px #8d8577; }
+  .card .hpnum { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .mini { display: grid; grid-template-columns: repeat(5, 8px); gap: 2px; align-self: start; grid-row: 1 / 3; grid-column: 3; }
+  .mini i { width: 8px; height: 8px; border-radius: 1px; background: #3b362e; }
+  .mini i.a { background: var(--hero); }
+  .mini i.h { background: var(--gold); }
+  .hint { font-size: 12.5px; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; line-height: 1.45; }
+  .hint b { color: var(--text); }
+
+  /* board */
+  .boardwrap { display: flex; flex-direction: column; align-items: center; }
+  .boardtop { width: calc(var(--cell) * 7 + 24px); display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .boardtop .foes { color: var(--enemy); }
+  .frame { background: #14120f; border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  #board { position: relative; overflow: hidden; border-radius: 8px; width: calc(var(--cell) * 7); height: calc(var(--cell) * 11); }
+  #board.shake { animation: shake .38s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+  .floor { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(11, 1fr); }
+  .floor div { margin: 3px; border-radius: 7px; background: #26231e; }
+  .floor div.zone { background: #2a2419; box-shadow: inset 0 0 0 2px rgba(240,169,59,.45); }
+  .floor div.top { background: repeating-linear-gradient(135deg, #1f1c18 0 6px, #24211c 6px 12px); }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+
+  .ent { position: absolute; left: 0; top: 0; width: calc(100% / 7); height: calc(100% / 11); transition: transform .2s ease, opacity .25s; }
+  .ent.new { opacity: 0; }
+  .ent.gone { opacity: 0; transition: opacity .25s, transform .25s; }
+  .ent .t { position: absolute; inset: 4px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ent .t svg { width: 74%; height: 74%; display: block; }
+  .ent.terrain .t { inset: 3px; }
+  .ent.terrain .t svg { width: 100%; height: 100%; }
+  .ent.hero .t, .ent.enemy .t { background: var(--cream); border: 2.5px solid var(--hero); box-shadow: 0 3px 0 rgba(0,0,0,.45); }
+  .ent.enemy .t { border-color: var(--enemy); }
+  .ent.item .t { background: #2b2620; border: 2px solid var(--gold); }
+  .ent.item.spikes .t, .ent.item.boulder .t { border-style: dashed; }
+  .ent.hero { pointer-events: auto; cursor: grab; z-index: 3; touch-action: none; }
+  .ent.hero.dragging { opacity: .35; }
+  .ent.ghost { position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none; transition: none; cursor: grabbing; }
+  .ent.ghost .t { transform: scale(1.08); box-shadow: 0 10px 22px rgba(0,0,0,.6), 0 0 0 3px var(--gold); }
+  .ent.big { width: calc(200% / 7); height: calc(200% / 11); }
+  .ent.enemy.elite .t { border: 3px solid #c04ad8; background: #efe0f2; box-shadow: 0 0 0 2px rgba(192,74,216,.35), 0 4px 0 rgba(0,0,0,.45); }
+  .ent.enemy.elite .t svg { width: 82%; height: 82%; }
+  .ent.enemy.elite .t::before { content: "ELITE"; position: absolute; top: 4px; left: 8px; font: 700 11px "Barlow Condensed", sans-serif; letter-spacing: 1.5px; color: #8b2fa0; }
+  .ent.enemy.elite .pips i { width: 7px; height: 7px; }
+  .ent.enemy { z-index: 2; }
+  .ent.hero.sel .t { box-shadow: 0 0 0 3px var(--gold), 0 3px 0 rgba(0,0,0,.45); }
+  .ent .pips { position: absolute; bottom: 3px; left: 0; right: 0; justify-content: center; gap: 2px; }
+  .ent .pips i { width: 6px; height: 6px; }
+  .ent .pips i.e { box-shadow: inset 0 0 0 1.2px #8d8577; }
+  .ent .badge { position: absolute; top: 0; right: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--enemy); color: #fff;
+    font: 700 13px/20px "Barlow Condensed", sans-serif; text-align: center; box-shadow: 0 0 0 2px #14120f; }
+  .ent .badge.atk { background: #c62f2f; }
+  .ent .badge.idle { background: #6f675b; }
+  .ent .threat { position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-radius: 50%; background: #c62f2f; color: #fff;
+    font: 700 13px/20px "Barlow Condensed", sans-serif; text-align: center; box-shadow: 0 0 0 2px #14120f; }
+  .ent.hit .t { animation: hit .32s; }
+  @keyframes hit { 0%,100% { filter: none; } 30% { filter: brightness(2.2) saturate(.2); transform: scale(.92); } }
+  .ent.jiggle .t { animation: jiggle .4s; }
+  @keyframes jiggle { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-9deg) translateY(-2px); } 40% { transform: rotate(8deg); } 60% { transform: rotate(-6deg); } 80% { transform: rotate(4deg); } }
+
+  .ov { position: absolute; width: calc(100% / 7); height: calc(100% / 11); }
+  .ov.pattern::after { content: ""; position: absolute; inset: 3px; border-radius: 7px; background: var(--c); box-shadow: inset 0 0 0 2px var(--c), 0 0 12px var(--c);
+    opacity: 0; animation: pattern .72s ease-out forwards; }
+  .ov.pattern.hit::after { animation-name: patternHit; }
+  @keyframes pattern { 15% { opacity: .38; } 60% { opacity: .3; } 100% { opacity: 0; } }
+  @keyframes patternHit { 15% { opacity: .8; } 60% { opacity: .6; } 100% { opacity: 0; } }
+  .ent.striking { z-index: 6; }
+  .ent.striking .t { box-shadow: 0 0 0 3px var(--c), 0 0 22px 6px var(--c); transform: scale(1.12); transition: transform .12s, box-shadow .12s; }
+  .ent.enemy.small .t svg { width: 50%; height: 50%; }
+  .card.striking { border-color: var(--c); box-shadow: 0 0 0 2px var(--c), 0 0 18px var(--c); }
+  .float.skill { font-size: 14px; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; z-index: 11;
+    text-shadow: 0 0 3px #000, 0 2px 0 #000, 0 0 8px #000; animation: skill 1s forwards; }
+  @keyframes skill { from { transform: translateY(-75%); opacity: 1; } 70% { opacity: 1; } to { transform: translateY(-120%); opacity: 0; } }
+  .ov.range::after { content: ""; position: absolute; inset: 3px; border-radius: 7px; background: rgba(79,139,227,.32); box-shadow: inset 0 0 0 2px rgba(79,139,227,.85); }
+  .ov.target { pointer-events: auto; cursor: pointer; }
+  .ov.target::after { content: "+"; position: absolute; inset: 5px; border-radius: 7px; border: 2px dashed var(--gold); color: var(--gold);
+    display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .ov.target:hover::after, .ov.target.hot::after { background: rgba(240,169,59,.28); }
+  .ov.intent::after { content: ""; position: absolute; left: 50%; top: 50%; width: 38%; height: 38%; transform: translate(-50%,-50%);
+    border-radius: 50%; border: 2px dotted var(--enemy); background: radial-gradient(circle, var(--enemy) 0 3px, transparent 4px); }
+  .float { position: absolute; width: calc(100% / 7); text-align: center; font: 700 22px "Barlow Condensed", sans-serif; color: #ff6b5b;
+    text-shadow: 0 2px 0 #000, 0 0 4px #000; animation: rise .85s forwards; z-index: 10; }
+  .float.heal { color: var(--heal); }
+  .float.gold { color: var(--gold); }
+  @keyframes rise { from { transform: translateY(10%); opacity: 1; } to { transform: translateY(-80%); opacity: 0; } }
+
+  .zonelabel { width: calc(var(--cell) * 7 + 24px); font-size: 13px; color: var(--gold); margin: 10px 0; display: flex; align-items: center; gap: 8px; }
+  .zonelabel i { width: 22px; height: 14px; border: 2px dashed var(--gold); border-radius: 3px; }
+  .controls { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; width: calc(var(--cell) * 7 + 24px); }
+  .controls button { font: 700 20px "Barlow Condensed", sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--text);
+    background: var(--panel2); border: 2px solid var(--line); border-radius: 12px; padding: 14px 6px; cursor: pointer; box-shadow: 0 4px 0 #0e0d0b; }
+  .controls button:hover { border-color: #6c6352; }
+  .controls button:active { transform: translateY(2px); box-shadow: 0 2px 0 #0e0d0b; }
+  .controls button.fwd { background: var(--gold); color: #2a1d08; border-color: #ffd28a; }
+  .controls button.hold { grid-column: 1 / 4; padding: 8px; font-size: 15px; }
+  .controls button:disabled { opacity: .45; cursor: default; }
+  .controls kbd { font: 600 11px Barlow, sans-serif; opacity: .6; margin-left: 4px; letter-spacing: 0; }
+  #status { margin-top: 12px; font-size: 14px; color: var(--muted); text-align: center; max-width: calc(var(--cell) * 7 + 24px); min-height: 2.6em; }
+  #status.warn { color: #ff8f6b; }
+
+  /* right panel */
+  .scorebox { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .scorebox div { background: var(--panel2); border-radius: 8px; padding: 6px 8px; }
+  .scorebox div.big { grid-column: 1 / 4; display: flex; align-items: baseline; justify-content: space-between; }
+  .scorebox small { display: block; color: var(--muted); font: 600 11px "Barlow Condensed", sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
+  .scorebox b { font: 700 22px "Barlow Condensed", sans-serif; }
+  .scorebox .big b { font-size: 40px; color: var(--gold); }
+  .scorebox .big span { color: var(--muted); font-size: 13px; text-align: right; }
+  ol.phases { list-style: none; padding: 0; margin: 0; }
+  ol.phases li { display: grid; grid-template-columns: 28px 1fr; gap: 0 10px; margin-bottom: 9px; color: var(--muted); }
+  ol.phases li span { grid-row: 1 / 3; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #5b5446; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; }
+  ol.phases li b { color: var(--text); font-family: "Barlow Condensed", sans-serif; font-size: 17px; }
+  ol.phases li small { font-size: 12.5px; }
+  ol.phases li.on span { background: var(--gold); border-color: var(--gold); color: #2a1d08; }
+  ol.phases li.on b { color: var(--gold); }
+  #log { list-style: none; margin: 0; padding: 0; font-size: 13px; max-height: 210px; overflow: auto; }
+  #log li { padding: 3px 0; border-bottom: 1px solid #312c25; color: var(--muted); }
+  #log li em { font-style: normal; font-family: "Barlow Condensed", sans-serif; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #7f7766; margin-right: 6px; }
+  #log li.bad { color: #ff9b85; } #log li.good { color: #9fe0b0; } #log li.gold { color: var(--gold); }
+  .intents { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .intents li { display: grid; grid-template-columns: 34px 1fr; gap: 8px; margin-bottom: 8px; color: var(--muted); align-items: center; }
+  .intents li .ic { width: 34px; height: 34px; border-radius: 6px; background: var(--cream); border: 2px solid var(--enemy); padding: 2px; }
+  .intents li .ic.it { background: #2b2620; border-color: var(--gold); }
+  .intents li .ic svg { width: 100%; height: 100%; display: block; }
+  .intents li b { color: var(--text); }
+  .intents .none { color: var(--muted); font-size: 13px; }
+
+  #party { position: fixed; inset: 0; z-index: 60; background: #14120f; display: none; overflow-y: auto; padding: 24px 16px; }
+  #party.show { display: block; }
+  #party .pbox { max-width: 1080px; margin: 0 auto; }
+  #party h2 { font-size: 46px; color: var(--gold); margin: 0; text-align: center; }
+  #party .psub { text-align: center; color: var(--muted); margin: 6px auto 18px; max-width: 640px; font-size: 14px; }
+  #party .psub b { color: var(--text); }
+  #pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .pcard { position: relative; text-align: left; font: inherit; color: var(--text); display: grid; grid-template-columns: 48px 1fr auto; gap: 10px;
+    padding: 12px; border: 2px solid var(--line); border-radius: 12px; background: var(--panel2); cursor: pointer; }
+  .pcard:hover { border-color: #6c6352; }
+  .pcard.on { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 16px color-mix(in srgb, var(--c) 45%, transparent); }
+  #pgrid.full .pcard:not(.on) { opacity: .45; }
+  .pcard .icon { width: 48px; height: 48px; border-radius: 8px; background: var(--cream); border: 2px solid var(--hero); padding: 3px; }
+  .pcard .icon svg { width: 100%; height: 100%; display: block; }
+  .pcard .nm { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 20px; line-height: 1; }
+  .pcard .cl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .pcard .ab { grid-column: 1 / 4; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+  .pcard .ab b { color: var(--text); }
+  .pcard .pnum { position: absolute; top: -9px; left: -9px; width: 24px; height: 24px; border-radius: 50%; background: var(--c); color: #1a1814;
+    font: 700 14px/24px "Barlow Condensed", sans-serif; text-align: center; box-shadow: 0 0 0 2px #14120f; }
+  .mini i.v { background: var(--heal); }
+  .pbar { position: sticky; bottom: -24px; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 18px; margin-top: 12px;
+    background: linear-gradient(rgba(20,18,15,0), #14120f 35%); }
+  .pbar .btn { margin: 0; }
+  .pbar .btn:disabled { opacity: .4; cursor: default; }
+  #pCount { color: var(--muted); font-size: 14px; }
+  #over { position: fixed; inset: 0; background: rgba(10,9,7,.78); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #over.show { display: flex; }
+  #over .box { background: var(--panel); border: 1px solid var(--gold); border-radius: 14px; padding: 26px 34px; text-align: center; min-width: 280px; }
+  #over h2 { margin: 0 0 6px; font-size: 44px; color: var(--gold); }
+  #over p { color: var(--muted); margin: 6px 0; }
+  #over p b { color: var(--text); font-size: 20px; }
+  .btn { font: 700 18px "Barlow Condensed", sans-serif; letter-spacing: 2px; text-transform: uppercase; background: var(--gold); color: #2a1d08;
+    border: 0; border-radius: 10px; padding: 10px 22px; margin-top: 12px; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-size: 14px; padding: 6px 12px; margin: 0; }
+
+  @media (max-width: 1150px) {
+    main { grid-template-columns: auto 290px; }
+    .left { grid-column: 1 / 3; grid-row: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0 12px; }
+    .left .panel { display: contents; }
+    .left .panel h2, .left .hint { grid-column: 1 / -1; }
+  }
+  @media (max-width: 760px) {
+    header { padding: 8px 14px; gap: 10px; } header h1 { font-size: 28px; } header .sub { display: none; }
+    main { grid-template-columns: 1fr; padding: 12px 16px; gap: 10px; }
+    .boardwrap { order: -1; }
+    .ent .pips { gap: 1px; } .ent .pips i { width: 4px; height: 5px; }
+    .left { grid-column: 1; grid-row: auto; grid-template-columns: 1fr; }
+    .controls button { font-size: 17px; padding: 12px 4px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="../index.html">← Webtools</a>
+  <h1 class="display">Tilebound</h1>
+  <span class="sub caps">Endless descent · Dungeon squad prototype</span>
+  <span class="spacer"></span>
+  <div class="stat"><small class="caps">Depth</small><b id="hDepth">0</b></div>
+  <div class="stat"><small class="caps">Turn</small><b id="hTurn">1</b></div>
+  <div class="stat score"><small class="caps">Score</small><b id="hScore">0</b></div>
+  <a class="btn ghost" href="tilebound-wiki.html" target="_blank" rel="noopener" title="Rules, heroes, enemies and terrain" style="text-decoration:none">Wiki</a>
+  <button class="btn ghost" id="newRun" title="Start a new run (R)">New run</button>
+</header>
+
+<main>
+  <section class="left">
+    <div class="panel">
+      <h2 class="display">Your Squad <small id="aliveCount">4 HEROES</small></h2>
+      <div id="squad"></div>
+      <div class="hint">Hover (or tap) a hero to see its <b>attack zone</b> in blue. Forward is up.<br>
+        <b>Drag</b> a hero onto a <b style="color:var(--gold)">gold +</b> square, or <b>tap</b> a hero then tap a square. Drop/tap onto another hero to swap. A reposition <b>spends a turn</b>: heroes strike and enemies act.</div>
+    </div>
+  </section>
+
+  <section class="boardwrap">
+    <div class="boardtop caps"><span>↑ Unexplored — revealed as you advance</span><span class="foes" id="foeCount">0 enemies in sight</span></div>
+    <div class="frame"><div id="board">
+      <div class="floor" id="floor"></div>
+      <div class="layer" id="ents"></div>
+      <div class="layer" id="ovl"></div>
+      <div class="layer" id="fx"></div>
+    </div></div>
+    <div class="zonelabel caps"><i></i>Deployment zone (bottom 4 rows) — repositioning a hero spends a turn</div>
+    <div class="controls">
+      <button id="bLeft">← Left<kbd>A</kbd></button>
+      <button id="bUp" class="fwd">↑ Forward<kbd>W</kbd></button>
+      <button id="bRight">Right →<kbd>D</kbd></button>
+      <button id="bHold" class="hold">Hold &amp; strike<kbd>Space</kbd></button>
+    </div>
+    <div id="status">Pick a direction — or tap a hero, then a gold square, to reposition it (costs a turn).</div>
+  </section>
+
+  <section class="right">
+    <div class="panel">
+      <div class="scorebox">
+        <div class="big"><div><small>Score</small><b id="sScore">0</b></div><span>Best<br><b id="sBest" style="font-size:20px;color:var(--text)">0</b></span></div>
+        <div><small>Depth</small><b id="sDepth">0</b></div>
+        <div><small>Kills</small><b id="sKills">0</b></div>
+        <div><small>Gold</small><b id="sGold">0</b></div>
+      </div>
+      <p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">Score = depth × 10 + kill points + gold · seed <span id="sSeed"></span></p>
+    </div>
+    <div class="panel">
+      <h2 class="display">Each Turn</h2>
+      <ol class="phases" id="phases">
+        <li data-p="1" class="on"><span>1</span><b>Choose</b><small>Pick a direction, hold, or reposition one hero</small></li>
+        <li data-p="2"><span>2</span><b>Move</b><small>Squad moves; a hero blocked by an obstacle stays behind</small></li>
+        <li data-p="3"><span>3</span><b>Heroes strike</b><small>One by one, each hero's pattern flashes and hits</small></li>
+        <li data-p="4"><span>4</span><b>Enemies act</b><small>All visible foes follow their rule</small></li>
+        <li data-p="5"><span>5</span><b>World acts</b><small>Traps toggle, boulders roll</small></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2 class="display">Last Turn <small id="logTurn"></small></h2>
+      <ul id="log"><li>Nothing yet — make your first move.</li></ul>
+    </div>
+    <div class="panel">
+      <h2 class="display">In Sight</h2>
+      <ul class="intents" id="intents"></ul>
+    </div>
+  </section>
+</main>
+
+<div id="over"><div class="box">
+  <h2 class="display">Squad Fallen</h2>
+  <p>Score <b id="oScore">0</b></p>
+  <p>Depth <b id="oDepth">0</b> · Kills <b id="oKills">0</b> · Gold <b id="oGold">0</b></p>
+  <p id="oBest"></p>
+  <button class="btn" id="oAgain">Descend again</button>
+  <button class="btn ghost" id="oParty" style="display:block;margin:12px auto 0">Change party</button>
+</div></div>
+
+<div id="party"><div class="pbox">
+  <h2 class="display">Choose Your Party</h2>
+  <p class="psub">Pick <b>4 heroes</b>. Pick order sets the starting spots: the first two start in front.
+    The grid on each card is its attack pattern (gold = the hero, blue = where it strikes, forward is up).
+    New here? Read the <a href="tilebound-wiki.html" target="_blank" rel="noopener">wiki</a>.</p>
+  <div id="pgrid"></div>
+  <div class="pbar"><span id="pCount" class="caps">0 / 4 chosen</span>
+    <button class="btn ghost" id="pDefault">Classic four</button>
+    <button class="btn" id="pGo" disabled>Descend ↓</button></div>
+</div></div>
+
+<script src="../js/tilebound-data.js"></script>
+<script src="../js/tilebound.js"></script>
+</body>
+</html>

@@ -19,9 +19,12 @@ docs/
     <slug>.html              # one post per file
   vietnamese-learning-plan.md  # content/planning notes for the learning tool
 .cursor/skills/add-webtool/  # Cursor skill + examples for scaffolding a new tool
+.claude/skills/tilebound/     # agent guide + smoke test for the Tilebound game and its wiki
 ```
 
 The current tools are listed in `docs/index.html`; check `docs/tools/` rather than relying on a list here.
+
+**Tilebound** (the grid dungeon/squad game, `docs/tools/tilebound*.html`) is the largest tool. For any request about it, or about its wiki, however loosely worded, read `.claude/skills/tilebound/SKILL.md` first. It maps files, vocabulary, architecture and recipes, and explains how to run its smoke test.
 
 ## Branches and deployment
 
@@ -31,7 +34,7 @@ The current tools are listed in `docs/index.html`; check `docs/tools/` rather th
 
 ## Conventions
 
-- **Each tool is self-contained**: one `docs/tools/<name>.html` + its matching `docs/js/<name>.js`. No shared component system.
+- **Each tool is self-contained**: one `docs/tools/<name>.html` + its matching `docs/js/<name>.js`. No shared component system. One exception: `docs/js/tilebound-data.js` is shared by the Tilebound game and its wiki page so their numbers can't drift.
 - **Styling:** global base is [Simple.css](https://simplecss.org/) CDN; page-specific styles go in a `<style>` block in the HTML file.
 - **No build toolchain:** edit files directly. Keep pages dependency-free or CDN-only; no npm installs.
 - **Adding a new tool:** create `docs/tools/<name>.html` and `docs/js/<name>.js`, and add a list item to the Webtools section of `docs/index.html`. The `.cursor/skills/add-webtool` skill describes the same workflow in detail.
