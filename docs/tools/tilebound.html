@@ -83,7 +83,15 @@
   .ent.enemy .t { border-color: var(--enemy); }
   .ent.item .t { background: #2b2620; border: 2px solid var(--gold); }
   .ent.item.spikes .t, .ent.item.boulder .t { border-style: dashed; }
-  .ent.hero { pointer-events: auto; cursor: pointer; z-index: 3; }
+  .ent.hero { pointer-events: auto; cursor: grab; z-index: 3; touch-action: none; }
+  .ent.hero.dragging { opacity: .35; }
+  .ent.ghost { position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none; transition: none; cursor: grabbing; }
+  .ent.ghost .t { transform: scale(1.08); box-shadow: 0 10px 22px rgba(0,0,0,.6), 0 0 0 3px var(--gold); }
+  .ent.big { width: calc(200% / 7); height: calc(200% / 11); }
+  .ent.enemy.elite .t { border: 3px solid #c04ad8; background: #efe0f2; box-shadow: 0 0 0 2px rgba(192,74,216,.35), 0 4px 0 rgba(0,0,0,.45); }
+  .ent.enemy.elite .t svg { width: 82%; height: 82%; }
+  .ent.enemy.elite .t::before { content: "ELITE"; position: absolute; top: 4px; left: 8px; font: 700 11px "Barlow Condensed", sans-serif; letter-spacing: 1.5px; color: #8b2fa0; }
+  .ent.enemy.elite .pips i { width: 7px; height: 7px; }
   .ent.enemy { z-index: 2; }
   .ent.hero.sel .t { box-shadow: 0 0 0 3px var(--gold), 0 3px 0 rgba(0,0,0,.45); }
   .ent .pips { position: absolute; bottom: 3px; left: 0; right: 0; justify-content: center; gap: 2px; }
@@ -117,7 +125,7 @@
   .ov.target { pointer-events: auto; cursor: pointer; }
   .ov.target::after { content: "+"; position: absolute; inset: 5px; border-radius: 7px; border: 2px dashed var(--gold); color: var(--gold);
     display: flex; align-items: center; justify-content: center; font-size: 22px; }
-  .ov.target:hover::after { background: rgba(240,169,59,.18); }
+  .ov.target:hover::after, .ov.target.hot::after { background: rgba(240,169,59,.28); }
   .ov.intent::after { content: ""; position: absolute; left: 50%; top: 50%; width: 38%; height: 38%; transform: translate(-50%,-50%);
     border-radius: 50%; border: 2px dotted var(--enemy); background: radial-gradient(circle, var(--enemy) 0 3px, transparent 4px); }
   .float { position: absolute; width: calc(100% / 7); text-align: center; font: 700 22px "Barlow Condensed", sans-serif; color: #ff6b5b;
@@ -211,7 +219,7 @@
       <h2 class="display">Your Squad <small id="aliveCount">4 HEROES</small></h2>
       <div id="squad"></div>
       <div class="hint">Hover (or tap) a hero to see its <b>attack zone</b> in blue. Forward is up.<br>
-        Click a hero, then a <b style="color:var(--gold)">gold +</b> square to reposition (click another hero to swap). A reposition <b>spends a turn</b>: heroes strike and enemies act.</div>
+        <b>Drag</b> a hero onto a <b style="color:var(--gold)">gold +</b> square, or <b>tap</b> a hero then tap a square. Drop/tap onto another hero to swap. A reposition <b>spends a turn</b>: heroes strike and enemies act.</div>
     </div>
   </section>
 

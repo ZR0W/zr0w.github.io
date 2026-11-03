@@ -69,6 +69,11 @@
       <path d="M5 16 q11 -9 22 0" fill="#7d2a2a" stroke="#3b3a36" stroke-width="1.5"/>
       <circle cx="11.5" cy="19.5" r="3" fill="#2a2a2a"/><circle cx="20.5" cy="19.5" r="3" fill="#2a2a2a"/><circle cx="11.5" cy="19.5" r="1" fill="#ff5a3a"/><circle cx="20.5" cy="19.5" r="1" fill="#ff5a3a"/>
       <path d="M16 23 l-1.5 3 h3z" fill="#2a2a2a"/><path d="M12.5 27.5v2.5M16 27.5v2.5M19.5 27.5v2.5" stroke="#3b3a36" stroke-width="1.5"/>`),
+    golem: svg(`<path d="M4 36 L6 16 L12 8 L28 8 L34 16 L36 36 Z" fill="#6f7782" stroke="#2b3036" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M6 16 H34 M10 26 L16 22 M30 27 L25 23 M18 34 L20 29 L23 34" stroke="#454c55" stroke-width="1.6" fill="none"/>
+      <path d="M10 6 L13 2 L16 6 L20 1 L24 6 L27 2 L30 6 Z" fill="#e7b93a" stroke="#7a5a12" stroke-width="1.2" stroke-linejoin="round"/>
+      <rect x="11" y="12.5" width="6.5" height="3" rx="1" fill="#7df0ff"/><rect x="22.5" y="12.5" width="6.5" height="3" rx="1" fill="#7df0ff"/>
+      <path d="M15 20 h10" stroke="#2b3036" stroke-width="2"/><circle cx="12" cy="31" r="1.4" fill="#454c55"/><circle cx="29" cy="31" r="1.4" fill="#454c55"/>`),
     rock: svg(`<path d="M6 32 L10 21 L19 16 L26 21 L33 20 L35 32 Z" fill="#6d665e" stroke="#2c2925" stroke-width="2" stroke-linejoin="round"/>
       <path d="M13 25 L18 21.5 M24 27 l4 -3" stroke="#8d857b" stroke-width="1.6"/><path d="M27 12 l4 -2 l2 4 l-4 1z" fill="#5d574f" stroke="#2c2925" stroke-width="1.4"/>`),
     pillar: svg(`<circle cx="20" cy="20" r="14" fill="#55514b" stroke="#2c2925" stroke-width="2"/><circle cx="20" cy="20" r="9.5" fill="#6e6a64" stroke="#3d3a35" stroke-width="1.2"/>
@@ -104,6 +109,7 @@
     bat: { name: 'Bat', hp: 2, dmg: 1, pts: 15, rule: 'Flits randomly. Bites an adjacent hero, then flees to the top of the screen for 5 turns and repeats.' },
     archer: { name: 'Skeleton Archer', hp: 2, dmg: 1, pts: 20, rule: 'Sniper — shoots the first hero in line of sight straight below (up to 5 squares); otherwise paces sideways.' },
     orc: { name: 'Orc Brute', hp: 6, dmg: 2, pts: 30, rule: 'Heavy hunter — chases the nearest hero, but only moves on even turns. Hits for 2.' },
+    golem: { name: 'Stone Golem', hp: 12, dmg: 3, pts: 80, size: 2, elite: true, rule: 'ELITE, 2×2 — hunts the nearest hero every turn and hits for 3. Needs a 2-wide gap to pass; never overlaps walls, items or heroes.' },
   };
   const ITEMS = {
     chest: { name: 'Chest', rule: 'Step on it: +25 gold.' },
@@ -158,7 +164,20 @@
   }
   const solid = (x, r) => terrain(x, r) !== '.';
   const heroAt = (x, r) => S.heroes.find((h) => h.alive && h.x === x && h.r === r);
-  const enemyAt = (x, r) => S.enemies.find((e) => e.hp > 0 && e.x === x && e.r === r);
+  // Enemies can be bigger than one square (the 2×2 elite): (x, r) is the bottom-left of the footprint.
+  const sizeOf = (e) => e.size || 1;
+  const enemyAt = (x, r) => S.enemies.find((e) => e.hp > 0 && x >= e.x && x < e.x + sizeOf(e) && r >= e.r && r < e.r + sizeOf(e));
+  const footprint = (x, r, n) => { const c = []; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) c.push([x + i, r + j]); return c; };
+  // Could enemy `e` stand with its bottom-left at (x, r)? Every covered square must be open (its own squares count as open).
+  function fits(e, x, r) {
+    return footprint(x, r, sizeOf(e)).every(([cx, cr]) => {
+      if (cx < 0 || cx >= W || !inView(cr) || solid(cx, cr) || heroAt(cx, cr)) return false;
+      const o = enemyAt(cx, cr);
+      if (o && o !== e) return false;
+      const it = itemAt(cx, cr);
+      return !it || it.type === 'spikes';
+    });
+  }
   const itemAt = (x, r) => S.items.find((i) => i.x === x && i.r === r);
   const aliveHeroes = () => S.heroes.filter((h) => h.alive);
   const visibleEnemies = () => S.enemies.filter((e) => e.hp > 0 && inView(e.r));
@@ -217,12 +236,19 @@
       if (x < 0) break;
       spawnEnemy(pick(pool), x, r, Math.floor(r / 25), Math.floor(r / 60));
     }
+    // Elite: occupies rows r-1..r. Rare, from depth 20, never two at once, only on a fully clear 2×2.
+    if (r > 20 && rnd() < 0.08 && !S.enemies.some((e) => ENEMIES[e.type].elite)) {
+      const probe = { size: 2 };
+      const spots = [];
+      for (let x = 0; x + 1 < W; x++) if (fits(probe, x, r - 1)) spots.push(x);
+      if (spots.length) spawnEnemy('golem', pick(spots), r - 1, Math.floor(r / 25), Math.floor(r / 60));
+    }
   }
 
   function spawnEnemy(type, x, r, hpBonus = 0, dmgBonus = 0, small = false) {
     const hp = small ? 1 : ENEMIES[type].hp + hpBonus;
     const e = { id: 'e' + S.nextId++, kind: 'enemy', type, x, r, hp, maxHp: hp, dmg: ENEMIES[type].dmg + dmgBonus,
-      small, dir: rnd() < 0.5 ? -1 : 1, flee: 0, nextDir: type === 'bat' ? pick(NEIGH) : null };
+      small, size: ENEMIES[type].size || 1, dir: rnd() < 0.5 ? -1 : 1, flee: 0, nextDir: type === 'bat' ? pick(NEIGH) : null };
     S.enemies.push(e);
     return e;
   }
@@ -240,7 +266,7 @@
 
   // ---------- enemy rules (pure: returns a plan, doesn't mutate) ----------
   // BFS over enemy-passable cells inside the view; returns the first step toward any goal cell.
-  function bfsStep(sx, sr, goal) {
+  function bfsStep(sx, sr, goal, passable = enemyPassable) {
     const key = (x, r) => x + ',' + r;
     const prev = new Map([[key(sx, sr), null]]);
     const q = [[sx, sr]];
@@ -254,7 +280,7 @@
           let c = [x, r];
           for (;;) { const p = prev.get(key(c[0], c[1])); if (p[0] === sx && p[1] === sr) return c; c = p; }
         }
-        if (!enemyPassable(nx, nr)) continue;
+        if (!passable(nx, nr)) continue;
         prev.set(k, [x, r]);
         q.push([nx, nr]);
       }
@@ -271,8 +297,21 @@
   }
 
   function hunt(e) {
+    if (sizeOf(e) > 1) return huntBig(e);
     const step = bfsStep(e.x, e.r, (x, r) => !!heroAt(x, r));
     return step ? stepPlan(step[0], step[1]) : { kind: 'idle' };
+  }
+
+  // Multi-square hunter: path-finds over bottom-left positions where its whole footprint fits.
+  // Reaching a position whose footprint covers a hero means it is next to that hero: it attacks.
+  function huntBig(e) {
+    const n = sizeOf(e);
+    const heroIn = (x, r) => footprint(x, r, n).map(([cx, cr]) => heroAt(cx, cr)).find(Boolean);
+    const step = bfsStep(e.x, e.r, (x, r) => x + n <= W && r + n - 1 <= topRow() && !!heroIn(x, r), (x, r) => fits(e, x, r));
+    if (!step) return { kind: 'idle' };
+    const h = heroIn(step[0], step[1]);
+    if (h) return { kind: 'attack', hero: h, x: h.x, r: h.r };
+    return fits(e, step[0], step[1]) ? { kind: 'move', x: step[0], r: step[1] } : { kind: 'idle' };
   }
 
   function plan(e) {
@@ -301,7 +340,7 @@
         const b = stepPlan(e.x - e.dir, e.r, { dir: -e.dir });
         return b.kind === 'move' ? b : { kind: 'idle', dir: -e.dir };
       }
-      case 'goblin': return hunt(e);
+      case 'goblin': case 'golem': return hunt(e);
       case 'orc': return S.turn % 2 === 0 ? hunt(e) : { kind: 'idle', why: 'resting' };
       case 'bat': {
         if (e.flee > 0) {
@@ -436,7 +475,7 @@
           const e = enemyAt(x, r);
           if (e) { targets = [e]; break; }
         }
-      } else targets = cells.map(([x, r]) => enemyAt(x, r)).filter(Boolean);
+      } else targets = [...new Set(cells.map(([x, r]) => enemyAt(x, r)).filter(Boolean))];
       const heals = d.heal ? cells.map(([x, r]) => heroAt(x, r)).filter((a) => a && a.hp < a.maxHp) : [];
       if (!targets.length && !heals.length) continue;
       struck = true;
@@ -591,7 +630,8 @@
   }
 
   const sy = (r) => topRow() - r; // world row → screen row (0 = top)
-  const pos = (x, r) => `translate(${x * 100}%, ${sy(r) * 100}%)`;
+  // translate() percentages are relative to the element, which is n squares wide for an n×n piece.
+  const pos = (x, r, n = 1) => `translate(${(x * 100) / n}%, ${(sy(r + n - 1) * 100) / n}%)`;
   const pipHtml = (hp, max) => '<div class="pips">' + Array.from({ length: max }, (_, i) => `<i class="${i < hp ? '' : 'e'}"></i>`).join('') + '</div>';
 
   function ensure(id, cls) {
@@ -607,7 +647,7 @@
       if (cls.startsWith('hero')) {
         el.addEventListener('mouseenter', () => { S.hover = id; renderOverlay(); highlightCard(); });
         el.addEventListener('mouseleave', () => { if (S.hover === id) { S.hover = null; renderOverlay(); highlightCard(); } });
-        el.addEventListener('click', (ev) => { ev.stopPropagation(); clickHero(id); });
+        el.addEventListener('pointerdown', (ev) => startDrag(ev, id, el));
       }
     }
     return el;
@@ -621,10 +661,10 @@
 
   function render() {
     const seen = new Set();
-    const place = (id, cls, x, r, key, html) => {
+    const place = (id, cls, x, r, key, html, n = 1) => {
       const el = ensure(id, cls);
-      el.style.transform = pos(x, r);
-      el.dataset.x = x; el.dataset.r = r;
+      el.style.transform = pos(x, r, n);
+      el.dataset.x = x; el.dataset.r = r; el.dataset.n = n;
       setContent(el, key, html);
       seen.add(id);
       return el;
@@ -640,7 +680,8 @@
     }
     for (const e of S.enemies) {
       if (e.hp <= 0 || !inView(e.r)) continue;
-      place(e.id, e.small ? 'enemy small' : 'enemy', e.x, e.r, `${e.type}${e.hp}/${e.maxHp}`, ART[e.type] + pipHtml(e.hp, e.maxHp));
+      const cls = 'enemy' + (e.small ? ' small' : '') + (sizeOf(e) > 1 ? ' big' : '') + (ENEMIES[e.type].elite ? ' elite' : '');
+      place(e.id, cls, e.x, e.r, `${e.type}${e.hp}/${e.maxHp}`, ART[e.type] + pipHtml(e.hp, e.maxHp), sizeOf(e));
     }
     for (const h of S.heroes) {
       if (!h.alive) continue;
@@ -651,7 +692,7 @@
       if (seen.has(id)) continue;
       els.delete(id);
       el.classList.add('gone');
-      el.style.transform = pos(Number(el.dataset.x), Number(el.dataset.r)); // slide with the camera as it fades
+      el.style.transform = pos(Number(el.dataset.x), Number(el.dataset.r), Number(el.dataset.n) || 1); // slide with the camera as it fades
       setTimeout(() => el.remove(), 260);
     }
     renderOverlay();
@@ -670,7 +711,8 @@
         const el = els.get(e.id);
         let badge = '·', cls = 'idle';
         if (p.kind === 'move') {
-          html += `<div class="ov intent" style="${cellStyle(p.x, p.r)}"></div>`;
+          const n = sizeOf(e);
+          html += `<div class="ov intent" style="${cellStyle(p.x, p.r + n - 1)};width:${(n / W) * 100}%;height:${(n / H) * 100}%"></div>`;
           const dx = p.x - e.x, dr = p.r - e.r;
           badge = dr < 0 ? '↓' : dr > 0 ? '↑' : dx < 0 ? '←' : '→'; cls = '';
         } else if (p.kind === 'attack') { badge = '!'; cls = 'atk'; threatened.add(p.hero.id); }
@@ -790,7 +832,7 @@
     attackerGlow(h.id, d.color);
     if (h.type !== 'cleric') bump(h, { x: h.x, r: h.r + 1 });
     floatText(h.x, h.r, d.ability, 'skill', d.color);
-    flashCells(cells, d.color, new Set(targets.map((e) => e.x + ',' + e.r)));
+    flashCells(cells, d.color, new Set(cells.filter(([x, r]) => targets.includes(enemyAt(x, r))).map(([x, r]) => x + ',' + r)));
     const card = document.querySelector(`.card[data-id="${h.id}"]`);
     if (card) {
       card.style.setProperty('--c', d.color);
@@ -810,9 +852,10 @@
   function bump(a, target) {
     const el = els.get(a.id);
     if (!el) return;
-    const mx = (a.x + (target.x - a.x) * 0.35), mr = (a.r + (target.r - a.r) * 0.35);
-    el.style.transform = `translate(${mx * 100}%, ${(topRow() - mr) * 100}%)`;
-    setTimeout(() => { el.style.transform = pos(a.x, a.r); }, 120);
+    const n = a.size || 1;
+    const mx = (a.x + (target.x - a.x) * 0.35 / n), mr = (a.r + (target.r - a.r) * 0.35 / n);
+    el.style.transform = pos(mx, mr, n);
+    setTimeout(() => { el.style.transform = pos(a.x, a.r, n); }, 120);
   }
 
   function setPhase(n) {
@@ -843,22 +886,82 @@
     if (!h) return;
     if (!S.sel) { S.sel = id; setStatus(`${HEROES[h.type].name} selected — click a gold + square to move, or another hero to swap.`); }
     else if (S.sel === id) { S.sel = null; setStatus('Your move.'); }
-    else {
-      const a = S.heroes.find((x) => x.id === S.sel);
-      [a.x, a.r, h.x, h.r] = [h.x, h.r, a.x, a.r];
-      return runTurn('arrange', { text: `${HEROES[a.type].name} and ${HEROES[h.type].name} swap places.` });
-    }
+    else return swapHeroes(S.heroes.find((x) => x.id === S.sel), h);
     render(); highlightCard();
+  }
+
+  // Both repositioning paths (tap-tap and drag-drop) end here; each spends the turn.
+  function swapHeroes(a, b) {
+    [a.x, a.r, b.x, b.r] = [b.x, b.r, a.x, a.r];
+    runTurn('arrange', { text: `${HEROES[a.type].name} and ${HEROES[b.type].name} swap places.` });
+  }
+  function repositionHero(h, x, r) {
+    h.x = x; h.r = r;
+    runTurn('arrange', { text: `${HEROES[h.type].name} repositions.` });
   }
 
   $('#ovl').addEventListener('click', (ev) => {
     const t = ev.target.closest('.target');
     if (!t || S.busy || S.over) return;
     const h = S.heroes.find((x) => x.id === S.sel);
-    if (!h) return;
-    h.x = Number(t.dataset.x); h.r = Number(t.dataset.r);
-    runTurn('arrange', { text: `${HEROES[h.type].name} repositions.` });
+    if (h) repositionHero(h, Number(t.dataset.x), Number(t.dataset.r));
   });
+
+  // Drag a hero onto a gold square (move) or another hero (swap). A press that doesn't travel
+  // is a tap and falls back to tap-to-select. Pointer events cover mouse, touch and pen alike.
+  function cellAtPoint(px, py) {
+    const b = $('#board').getBoundingClientRect();
+    if (px < b.left || px >= b.right || py < b.top || py >= b.bottom) return null;
+    const x = Math.floor(((px - b.left) / b.width) * W);
+    const r = topRow() - Math.floor(((py - b.top) / b.height) * H);
+    return [x, r];
+  }
+
+  function startDrag(ev, id, el) {
+    if (S.busy || S.over || ev.button > 0) return;
+    ev.preventDefault();
+    const h = S.heroes.find((x) => x.id === id && x.alive);
+    if (!h) return;
+    const sx = ev.clientX, sy0 = ev.clientY;
+    let ghost = null, hot = null;
+    el.setPointerCapture(ev.pointerId);
+    const move = (e) => {
+      if (!ghost) {
+        if (Math.hypot(e.clientX - sx, e.clientY - sy0) < 8) return;
+        S.sel = id; S.hover = id; render(); highlightCard();
+        const rect = el.getBoundingClientRect();
+        ghost = document.createElement('div');
+        ghost.className = 'ent hero ghost';
+        ghost.style.width = rect.width + 'px'; ghost.style.height = rect.height + 'px';
+        ghost.innerHTML = el.querySelector('.t').outerHTML;
+        document.body.appendChild(ghost);
+        el.classList.add('dragging');
+        setStatus(`Drop ${HEROES[h.type].name} on a gold square to move, or on another hero to swap (costs a turn).`);
+      }
+      ghost.style.transform = `translate(${e.clientX - ghost.offsetWidth / 2}px, ${e.clientY - ghost.offsetHeight / 2}px)`;
+      const c = cellAtPoint(e.clientX, e.clientY);
+      const t = c && document.querySelector(`.ov.target[data-x="${c[0]}"][data-r="${c[1]}"]`);
+      if (t !== hot) { hot?.classList.remove('hot'); t?.classList.add('hot'); hot = t; }
+    };
+    const end = (e) => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', end);
+      el.removeEventListener('pointercancel', end);
+      if (!ghost) { if (e.type === 'pointerup') clickHero(id); return; }
+      ghost.remove(); el.classList.remove('dragging');
+      S.hover = null;
+      const c = e.type === 'pointerup' && cellAtPoint(e.clientX, e.clientY);
+      const other = c && heroAt(c[0], c[1]);
+      if (c && other && other !== h) return swapHeroes(h, other);
+      if (c && zoneOpen(c[0], c[1]) && !heroAt(c[0], c[1])) return repositionHero(h, c[0], c[1]);
+      S.sel = null;
+      setStatus('Drop cancelled — nothing moved.');
+      render(); highlightCard();
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
   document.addEventListener('click', (ev) => {
     if (S.sel && !ev.target.closest('.ent.hero, .ov.target, .card, .controls')) { S.sel = null; render(); highlightCard(); }
   });
