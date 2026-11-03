@@ -522,8 +522,10 @@
       const stuck = all.filter((h) => !can(h));
       // A stuck hero may stay behind while the rest move, unless it is at the border of the world:
       // on the bottom row when advancing (it would scroll off the map) or pressed against a side wall.
+      // Only advancing can push someone off the map: a stuck hero on the bottom row is "pinned".
+      // Sideways moves squish instead: whoever is stuck (even against the side wall) stays put.
       // A stuck turret never stops the squad: it is simply left behind (and scrolls away).
-      const pinned = stuck.filter((h) => !h.static && (dir === 'up' ? h.r === S.camR : terrain(h.x + dx, h.r) === 'edge'));
+      const pinned = dir === 'up' ? stuck.filter((h) => !h.static && h.r === S.camR) : [];
       const movers = all.filter((h) => !stuck.includes(h));
       // Held by an enemy on the bottom row: the rest still advance (and the held hero stays and
       // attacks) if they can do it inside the zone, so the view doesn't scroll and nobody is lost.
@@ -535,9 +537,9 @@
       }
       if (pinned.length) return refuse(dir, stuck, pinned, note);
       if (!movers.some((h) => !h.static)) {
-        // Nobody can move. Blocked by an enemy: the turn still happens — they stand and attack.
-        // Blocked only by terrain: refuse, so a pointless press never wastes a turn.
-        if (stuck.some((h) => cause.get(h) === 'enemy')) return runTurn(dir, { dx, dr, movers, stuck, noScroll: true });
+        // Nobody can move. Advancing into an enemy: the turn still happens — they stand and attack.
+        // Otherwise (terrain only, or any sideways move) refuse, so a pointless press never wastes a turn.
+        if (dir === 'up' && stuck.some((h) => cause.get(h) === 'enemy')) return runTurn(dir, { dx, dr, movers, stuck, noScroll: true });
         return refuse(dir, stuck, pinned);
       }
       return runTurn(dir, { dx, dr, movers, stuck });
@@ -561,10 +563,9 @@
     jiggle(blocked);
     const names = (hs) => hs.map((h) => HEROES[h.type].name).join(', ');
     const word = { up: 'forward', left: 'left', right: 'right' }[dir];
-    const why = !pinned.length ? `${names(blocked)} can't move ${word}`
-      : dir === 'up' && note ? `${names(pinned)} ${pinned.length === 1 ? 'is' : 'are'} held by an enemy on the back row, and ${note}`
-      : dir === 'up' ? `${names(pinned)} can't advance from the back row and would be left off the map`
-      : `${names(pinned)} ${pinned.length === 1 ? 'is' : 'are'} against the edge of the world`;
+    const why = !pinned.length ? `nobody can move ${word}`
+      : note ? `${names(pinned)} ${pinned.length === 1 ? 'is' : 'are'} held by an enemy on the back row, and ${note}`
+      : `${names(pinned)} can't advance from the back row and would be left off the map`;
     setStatus(`Blocked — ${why}. Nothing moved and no turn passed. Reposition someone, pick another direction, or hold.`, true);
   }
 
