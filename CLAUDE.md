@@ -34,7 +34,7 @@ The current tools are listed in `docs/index.html`; check `docs/tools/` rather th
 
 ## Conventions
 
-- **Each tool is self-contained**: one `docs/tools/<name>.html` + its matching `docs/js/<name>.js`. No shared component system. One exception: `docs/js/tilebound-data.js` is shared by the Tilebound game and its wiki page so their numbers can't drift.
+- **Each tool is self-contained**: one `docs/tools/<name>.html` + its matching `docs/js/<name>.js`. No shared component system. One exception: Tilebound splits its script into `tilebound-data.js` (shared with its wiki page so their numbers can't drift), `tilebound-sfx.js` (synthesized sound effects) and `tilebound.js`.
 - **Styling:** global base is [Simple.css](https://simplecss.org/) CDN; page-specific styles go in a `<style>` block in the HTML file.
 - **No build toolchain:** edit files directly. Keep pages dependency-free or CDN-only; no npm installs.
 - **Adding a new tool:** create `docs/tools/<name>.html` and `docs/js/<name>.js`, and add a list item to the Webtools section of `docs/index.html`. The `.cursor/skills/add-webtool` skill describes the same workflow in detail.

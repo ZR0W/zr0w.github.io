@@ -28,6 +28,7 @@
   }
 
   const { ART, HEROES, ENEMIES, ITEMS, STRUCTURES: STRUCTURE_INFO, DIFFICULTY, DEFAULT_PARTY } = window.TILEBOUND;
+  const sfx = (name) => window.TileboundSfx?.play(name); // sound effects live in tilebound-sfx.js
   const dmgOf = (h, d) => (d.special === 'rage' ? d.dmg + (h.maxHp - h.hp) : d.dmg);
   const DIRV = { up: [0, 1], left: [-1, 0], right: [1, 0], hold: [0, 0] };
   const NEIGH = [[0, -1], [-1, 0], [1, 0], [0, 1]]; // toward the squad first
@@ -424,6 +425,7 @@
   }
 
   function refuse(dir, blocked, pinned, note = '') {
+    sfx('blocked');
     const board = $('#board');
     board.classList.remove('shake'); void board.offsetWidth; board.classList.add('shake');
     setTimeout(() => board.classList.remove('shake'), 420);
@@ -447,28 +449,29 @@
     setPhase(2);
     const heroes = opts.movers || [];
     const stuck = opts.stuck || [];
-    if (dir === 'hold') log('move', 'Squad holds position.');
-    else if (dir === 'arrange') log('move', opts.text);
+    if (dir === 'hold') { log('move', 'Squad holds position.'); sfx('hold'); }
+    else if (dir === 'arrange') { log('move', opts.text); sfx('drop'); }
     else {
       for (const h of heroes) { h.x += opts.dx; h.r += opts.dr; }
       if (!heroes.length) log('move', 'Blocked by enemies — the squad stands its ground and attacks.');
       else if (dir === 'up' && opts.noScroll) log('move', 'Squad pushes forward inside the zone while the back row holds the line.');
       else if (dir === 'up') { S.camR++; genRow(topRow()); cull(); log('move', `Squad advances to depth ${S.camR}.`); }
       else log('move', `Squad sidesteps ${dir}.`);
+      sfx(!heroes.length ? 'hold' : dir === 'up' ? 'step' : 'sidestep');
       for (const h of stuck) log('move', `${HEROES[h.type].name} is blocked and ${heroes.length ? 'stays behind' : 'holds position'}.`, 'bad');
     }
     render();
-    if (stuck.length) jiggle(stuck);
+    if (stuck.length) { jiggle(stuck); sfx('bump'); }
     await sleep(230);
     if (heroes.length) {
       for (const h of heroes) {
         const it = itemAt(h.x, h.r);
         if (!it || h.static) continue; // turrets roll over pickups without using them
         const nm = HEROES[h.type].name;
-        if (it.type === 'chest') { const g = window.TILEBOUND.SCORING.chestGold; S.gold += g; floatText(h.x, h.r, `+${g}g`, 'gold'); log('move', `${nm} opens a chest: +${g} gold.`, 'gold'); removeItem(it); }
-        else if (it.type === 'potion') { const g = heal(h, 3); log('move', `${nm} drinks a potion: +${g} HP.`, 'good'); removeItem(it); }
-        else if (it.type === 'shrine') { useShrine(h); removeItem(it); }
-        else if (it.type === 'spikes' && it.up) { log('move', `${nm} steps on raised spikes: −1.`, 'bad'); damage(h, 1); }
+        if (it.type === 'chest') { const g = window.TILEBOUND.SCORING.chestGold; S.gold += g; sfx('coin'); floatText(h.x, h.r, `+${g}g`, 'gold'); log('move', `${nm} opens a chest: +${g} gold.`, 'gold'); removeItem(it); }
+        else if (it.type === 'potion') { sfx('potion'); const g = heal(h, 3); log('move', `${nm} drinks a potion: +${g} HP.`, 'good'); removeItem(it); }
+        else if (it.type === 'shrine') { sfx('shrine'); useShrine(h); removeItem(it); }
+        else if (it.type === 'spikes' && it.up) { sfx('spikes'); log('move', `${nm} steps on raised spikes: −1.`, 'bad'); damage(h, 1); }
       }
       render();
     }
@@ -523,12 +526,14 @@
         else { path.push([p.hero.x, p.hero.r]); bump(e, p.hero); }
         attackerGlow(e.id, '#ff4a3a');
         flashCells(path, '#ff4a3a');
+        sfx(ENEMIES[e.type].sfx);
         await sleep(150);
         let target = p.hero;
         const guard = S.heroes.find((g) => g.alive && g !== target && HEROES[g.type].special === 'guard' && Math.abs(g.x - target.x) + Math.abs(g.r - target.r) === 1);
         if (guard) {
           log('enemy', `${HEROES[guard.type].name} shields ${HEROES[target.type].name}.`, 'good');
           flashCells([[guard.x, guard.r]], HEROES.guardian.color);
+          sfx('shield');
           target = guard;
         }
         log('enemy', `${en} ${p.ranged ? 'shoots' : 'hits'} ${HEROES[target.type].name}: −${e.dmg}.` + (e.type === 'bat' ? ' It flees upward.' : ''), 'bad');
@@ -548,6 +553,7 @@
       if (it.type === 'spikes') {
         it.up = !it.up; worldActed = true;
         if (it.up) {
+          sfx('spikes');
           const u = heroAt(it.x, it.r) || enemyAt(it.x, it.r);
           if (u) { log('world', `Spikes rise under ${unitName(u)}: −1.`, u.kind === 'hero' ? 'bad' : ''); damage(u, 1); }
         }
@@ -558,7 +564,8 @@
         worldActed = true;
         const nx = it.x + it.dir;
         const u = heroAt(nx, it.r) || enemyAt(nx, it.r);
-        if (u) { log('world', `Boulder slams into ${unitName(u)}: −2.`, u.kind === 'hero' ? 'bad' : ''); damage(u, 2); bump(it, u); it.dir = -it.dir; }
+        sfx('boulder');
+        if (u) { log('world', `Boulder slams into ${unitName(u)}: −2.`, u.kind === 'hero' ? 'bad' : ''); sfx('club'); damage(u, 2); bump(it, u); it.dir = -it.dir; }
         else if (solid(nx, it.r) || itemAt(nx, it.r)) it.dir = -it.dir;
         else it.x = nx;
       }
@@ -585,11 +592,13 @@
     if (d.special === 'druid') {
       S.items.push({ id: 'i' + S.nextId++, kind: 'item', type: 'vine', x, r, ttl: 5 });
       h.cd = 2;
+      sfx('grow');
       log('strike', `${d.name} grows a vine wall.`, 'good');
     } else {
       const t = HEROES.turret;
       S.heroes.push({ id: 'hturret' + S.nextId++, kind: 'hero', type: 'turret', static: true, owner: h.id, x, r, hp: t.hp, maxHp: t.hp, alive: true });
       h.cd = 3;
+      sfx('build');
       log('strike', `${d.name} deploys a turret.`, 'good');
     }
     attackerGlow(h.id, d.color);
@@ -606,6 +615,7 @@
     u.hp -= n;
     floatText(u.x, u.r, '−' + n);
     hitFx(u.id);
+    sfx(u.hp > 0 ? (u.kind === 'hero' ? 'heroHurt' : 'hit') : u.kind === 'hero' && !u.static ? 'heroDie' : 'enemyDie');
     if (u.hp > 0) return;
     if (u.kind === 'hero' && u.static) {
       S.heroes = S.heroes.filter((x) => x !== u);
@@ -627,6 +637,7 @@
           spawnEnemy('slime', u.x + dx, u.r + dr, 0, u.dmg - 1, true);
           made++;
         }
+        if (made) sfx('split');
         if (made) log('death', `The slime splits into ${made} small slime${made > 1 ? 's' : ''}!`, 'bad');
       }
     }
@@ -634,7 +645,7 @@
 
   function heal(h, n) {
     const g = Math.min(n, h.maxHp - h.hp);
-    if (g > 0) { h.hp += g; floatText(h.x, h.r, '+' + g, 'heal'); }
+    if (g > 0) { h.hp += g; floatText(h.x, h.r, '+' + g, 'heal'); sfx('heal'); }
     return g;
   }
 
@@ -665,6 +676,7 @@
 
   function gameOver() {
     S.over = true; S.busy = false;
+    sfx('gameOver');
     const sc = score(), b = best();
     if (sc > b) saveBest(sc);
     setPhase(0);
@@ -891,6 +903,7 @@
 
   // A hero's attack: glow + lunge, its skill name, its card lights up, and its whole pattern flashes.
   function strikeFx(h, d, cells, targets) {
+    sfx(d.sfx);
     attackerGlow(h.id, d.color);
     if (h.type !== 'cleric') bump(h, { x: h.x, r: h.r + 1 });
     floatText(h.x, h.r, d.ability, 'skill', d.color);
@@ -946,8 +959,8 @@
     if (S.busy || S.over) return;
     const h = S.heroes.find((x) => x.id === id && x.alive && !x.static);
     if (!h) return;
-    if (!S.sel) { S.sel = id; setStatus(`${HEROES[h.type].name} selected — click a gold + square to move, or another hero to swap.`); }
-    else if (S.sel === id) { S.sel = null; setStatus('Your move.'); }
+    if (!S.sel) { S.sel = id; sfx('select'); setStatus(`${HEROES[h.type].name} selected — click a gold + square to move, or another hero to swap.`); }
+    else if (S.sel === id) { S.sel = null; sfx('deselect'); setStatus('Your move.'); }
     else return swapHeroes(S.heroes.find((x) => x.id === S.sel), h);
     render(); highlightCard();
   }
@@ -992,6 +1005,7 @@
         if (Math.hypot(e.clientX - sx, e.clientY - sy0) < 8) return;
         S.sel = id; S.hover = id; render(); highlightCard();
         const rect = el.getBoundingClientRect();
+        sfx('pickup');
         ghost = document.createElement('div');
         ghost.className = 'ent hero ghost';
         ghost.style.width = rect.width + 'px'; ghost.style.height = rect.height + 'px';
@@ -1017,6 +1031,7 @@
       if (c && other && other !== h && !other.static) return swapHeroes(h, other);
       if (c && zoneOpen(c[0], c[1]) && !heroAt(c[0], c[1])) return repositionHero(h, c[0], c[1]);
       S.sel = null;
+      sfx('cancel');
       setStatus('Drop cancelled — nothing moved.');
       render(); highlightCard();
     };
@@ -1027,6 +1042,23 @@
   document.addEventListener('click', (ev) => {
     if (S.sel && !ev.target.closest('.ent.hero, .ov.target, .card, .controls')) { S.sel = null; render(); highlightCard(); }
   });
+
+  // Every button gives a click (party cards and Descend have their own sounds).
+  document.addEventListener('pointerdown', (ev) => { if (ev.target.closest('button:not(.pcard):not(#pGo):not(:disabled), a.btn')) sfx('click'); });
+  function toggleSound() {
+    const sx = window.TileboundSfx;
+    if (!sx) return;
+    sx.setMuted(!sx.muted);
+    syncSoundButton();
+    if (!sx.muted) sfx('select');
+  }
+  function syncSoundButton() {
+    const on = !window.TileboundSfx?.muted;
+    $('#sfxBtn').textContent = on ? 'Sound: on' : 'Sound: off';
+    $('#sfxBtn').setAttribute('aria-pressed', String(on));
+  }
+  $('#sfxBtn').addEventListener('click', toggleSound);
+  syncSoundButton();
 
   $('#bLeft').addEventListener('click', () => tryMove('left'));
   $('#bRight').addEventListener('click', () => tryMove('right'));
@@ -1072,7 +1104,7 @@
     const b = ev.target.closest('.pcard');
     if (!b) return;
     const i = picks.indexOf(b.dataset.k);
-    if (i >= 0) picks.splice(i, 1); else if (picks.length < 4) picks.push(b.dataset.k);
+    if (i >= 0) { picks.splice(i, 1); sfx('deselect'); } else if (picks.length < 4) { picks.push(b.dataset.k); sfx('select'); } else sfx('blocked');
     renderParty();
   });
   $('#pDefault').addEventListener('click', () => { picks = [...DEFAULT_PARTY]; renderParty(); });
@@ -1084,6 +1116,7 @@
     $('#party').classList.remove('show');
     const seed = firstRun && urlSeed() !== null ? urlSeed() : (Math.random() * 2 ** 32) >>> 0;
     firstRun = false;
+    sfx('start');
     newGame(seed, party);
   }
   $('#pGo').addEventListener('click', startRun);
@@ -1091,6 +1124,7 @@
   document.addEventListener('keydown', (ev) => {
     if (ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     const k = ev.key.toLowerCase();
+    if (k === 'm') { toggleSound(); return; }
     if (partyOpen) { if (k === 'enter') startRun(); return; }
     const map = { w: 'up', arrowup: 'up', a: 'left', arrowleft: 'left', d: 'right', arrowright: 'right', ' ': 'hold', s: 'hold', arrowdown: 'hold' };
     if (map[k]) { ev.preventDefault(); tryMove(map[k]); }

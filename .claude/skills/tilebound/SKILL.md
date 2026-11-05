@@ -16,6 +16,7 @@ no dependencies beyond Google Fonts. Deployed with the rest of the site from `do
 | `docs/tools/tilebound.html` | Game page: layout, all CSS, party-select overlay (`#party`), game-over overlay (`#over`). |
 | `docs/js/tilebound-data.js` | **Single source of truth for content and numbers**: `window.TILEBOUND = { W, H, ZONE, ART, HEROES, ENEMIES, ITEMS, DEFAULT_PARTY, STRUCTURES, DIFFICULTY, SCORING }`. Loaded by both pages. |
 | `docs/js/tilebound.js` | Game logic + rendering (one IIFE). Reads everything from `window.TILEBOUND`. |
+| `docs/js/tilebound-sfx.js` | Sound effects, **synthesized** with the Web Audio API (no audio files). `window.TileboundSfx.play(name)`. Game page only. |
 | `docs/tools/tilebound-wiki.html` | Wiki/help page. Hand-written prose: Overview, Controls, Turn order, **Movement rules table**, Scoring, Tips. |
 | `docs/js/tilebound-wiki.js` | Renders the wiki's Heroes, Bestiary, Spawning & scaling, Items, Terrain/Structures sections from the data file, plus search and `#anchor` links (`#hero-knight`, `#enemy-golem`, `#item-chest`, `#structure-vault`). |
 | `docs/index.html` | Webtools list entry linking the game and the wiki. |
@@ -46,6 +47,7 @@ edited by hand when *rules* change.
 | difficulty, spawn rate, scaling | `DIFFICULTY` + enemy `from`/`weight` | data file; used in `genRow` |
 | score | `score()` = depth × `SCORING.perDepth` + kill `pts` + gold | |
 | help page, rules doc, wiki, manual | tilebound-wiki.html / tilebound-wiki.js | |
+| sound, sfx, audio, noises, mute, volume | `tilebound-sfx.js` recipes; `sfx('name')` calls in tilebound.js; `sfx` field on heroes/enemies in the data file | |
 
 ## How the game works (tilebound.js)
 
@@ -100,6 +102,24 @@ edited by hand when *rules* change.
 - **Wiki-only edit:** prose in tilebound-wiki.html; generated cards/tables in tilebound-wiki.js. Keep it light — same dark
   theme, no libraries.
 
+## Sound effects
+
+- **No audio files.** The network policy blocked the free sound libraries, and synthesis needs no licensing, so every effect is a recipe in `SOUNDS` in `tilebound-sfx.js`.
+- **Building blocks:** each recipe combines `tone()` (an oscillator with a pitch sweep and a percussive envelope) and `noise()` (filtered white noise with a filter sweep). The `notes()` helper plays a short melody.
+- **Volume:** `VOLUME` is the master level. A compressor stops stacked effects from clipping.
+- **Repeats:** the same effect within 35 ms plays only once.
+- **Unlocking audio:** the first pointerdown or keydown unlocks audio, as browsers require.
+- **Mute:** the header button or the `M` key toggles it, stored in `localStorage['tilebound.sound']`.
+- **Where effects fire:** the game calls `sfx('<name>')`.
+  - Movement: `step`, `sidestep`, `hold`, `drop`, `bump`, `blocked`.
+  - Attacks: `HEROES[type].sfx` and `ENEMIES[type].sfx`.
+  - Results: `hit`, `enemyDie`, `split`, `heroHurt`, `heroDie`, `heal`.
+  - Items and world: `coin`, `potion`, `shrine`, `spikes`, `boulder`.
+  - Specials: `grow`, `build`.
+  - Interface: `click` on every button via one pointerdown listener, plus `select`, `deselect`, `pickup`, `cancel`, `start` and `gameOver`.
+- **Adding a sound:** write a recipe in `SOUNDS`, then call `sfx('name')`. For a hero or enemy attack, set its `sfx` field instead. The smoke test checks that every `sfx` name exists and that every effect renders audibly without clipping. To hear an effect, render it offline with `TileboundSfx.render(ctx, out, name)`, as the smoke test does, or play a live game.
+- **Swapping in recorded audio later:** if real recordings are ever wanted, replace a recipe body with an `AudioBuffer` playback. `play()` stays the single entry point.
+
 ## Gotchas
 
 - Game strings are single-quoted JS: an apostrophe inside (`can't`) is a syntax error — write "cannot" or use a template literal.
@@ -108,7 +128,8 @@ edited by hand when *rules* change.
 - A rule that can strand the squad needs an escape: Hold always works, turrets never block, sideways moves squish.
 - The game page omits Simple.css on purpose (like niu-lai-world). Mobile matters: hero dragging uses Pointer Events and
   `touch-action: none`; check 390px width has no horizontal scroll.
-- localStorage keys: `tilebound.best`, `tilebound.party` — always wrapped in try/catch.
+- localStorage keys: `tilebound.best`, `tilebound.party`, `tilebound.sound` — always wrapped in try/catch.
+- Never call audio APIs directly from game code; go through `sfx()` so a missing/blocked AudioContext can't break a turn.
 
 ## Testing
 
