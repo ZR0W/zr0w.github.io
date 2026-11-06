@@ -12,6 +12,7 @@ docs/
   assets/
     images/                  # static images (e.g. mascot)
     audio/vietnamese/        # local MP3s for the Vietnamese learning tool
+    audio/tilebound/         # trimmed sound-effect clips for Tilebound (sources in its CREDITS.txt)
   tools/<name>.html          # one page per tool
   js/<name>.js               # matching script for each tool (and interactive blog posts)
   blog/

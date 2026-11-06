@@ -104,8 +104,12 @@ edited by hand when *rules* change.
 
 ## Sound effects
 
-- **No audio files.** The network policy blocked the free sound libraries, and synthesis needs no licensing, so every effect is a recipe in `SOUNDS` in `tilebound-sfx.js`.
-- **Building blocks:** each recipe combines `tone()` (an oscillator with a pitch sweep and a percussive envelope) and `noise()` (filtered white noise with a filter sweep). The `notes()` helper plays a short melody.
+- **Two layers.** `CLIPS` maps some effects to recorded WAV clips in `docs/assets/audio/tilebound/`, trimmed from the user's Sonniss GDC 2024 bundle (sources and license note in `CREDITS.txt` there). Every effect also has a synthesized recipe in `SOUNDS`, which plays until clips load, when a clip fails, or on `file://` pages (fetch is blocked there, so the smoke test hears only synth).
+- **Clip entries:** `{ file (name or list for random variants), gain, rate (pitch/speed), jitter (± random rate) }`. Clips load after the first user gesture.
+- **Adding or replacing a clip:** process the source to mono 32 kHz 16-bit WAV, trimmed, faded and peak-normalized to −2 dBFS. WAV, because MP3 adds a short start delay. Then add a `CLIPS` entry and a `CREDITS.txt` line.
+  - **Never commit raw library files:** the repo is public and the Sonniss license forbids redistributing the library.
+  - **Testing clips:** serve the repo over HTTP (`python3 -m http.server`) and check `TileboundSfx.clipsLoaded` and the `stats['clip:<name>']` counters.
+- **Building blocks (synth):** each recipe combines `tone()` (an oscillator with a pitch sweep and a percussive envelope) and `noise()` (filtered white noise with a filter sweep). The `notes()` helper plays a short melody.
 - **Volume:** `VOLUME` is the master level. A compressor stops stacked effects from clipping.
 - **Repeats:** the same effect within 35 ms plays only once.
 - **Unlocking audio:** the first pointerdown or keydown unlocks audio, as browsers require.
@@ -118,7 +122,7 @@ edited by hand when *rules* change.
   - Specials: `grow`, `build`.
   - Interface: `click` on every button via one pointerdown listener, plus `select`, `deselect`, `pickup`, `cancel`, `start` and `gameOver`.
 - **Adding a sound:** write a recipe in `SOUNDS`, then call `sfx('name')`. For a hero or enemy attack, set its `sfx` field instead. The smoke test checks that every `sfx` name exists and that every effect renders audibly without clipping. To hear an effect, render it offline with `TileboundSfx.render(ctx, out, name)`, as the smoke test does, or play a live game.
-- **Swapping in recorded audio later:** if real recordings are ever wanted, replace a recipe body with an `AudioBuffer` playback. `play()` stays the single entry point.
+- `play()` stays the single entry point: it tries the clip, then falls back to the recipe.
 
 ## Gotchas
 

@@ -122,6 +122,28 @@ const check = (name, ok, info = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  $
   check('sound: every hero/enemy sfx exists', sound.missing.length === 0, sound.missing.join(', '));
   check('sound: a combat turn fires hold/slash/hit/claw/heroHurt', sound.fired === 'all', sound.fired);
 
+  // ---- recorded clips: only load over http(s), so serve the repo with a tiny built-in server ----
+  const http = require('http'), fs = require('fs');
+  const server = http.createServer((req, res) => {
+    const file = path.join(root, decodeURIComponent(req.url.split('?')[0]));
+    if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
+    const type = { '.html': 'text/html', '.js': 'text/javascript', '.wav': 'audio/wav' }[path.extname(file)] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': type }); fs.createReadStream(file).pipe(res);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  await page.goto(`http://127.0.0.1:${server.address().port}/docs/tools/tilebound.html?seed=1`);
+  await page.click('#pGo'); // the user gesture that unlocks audio and starts loading clips
+  const clips = await page.evaluate(async () => {
+    const X = window.TileboundSfx, sl = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 100; i++) { // up to 5 s for the clips to download and decode
+      await sl(50);
+      if (X.clipNames.every((n) => { X.play(n); return X.stats['clip:' + n] > 0; })) break;
+    }
+    return { loaded: X.clipsLoaded.length, notClip: X.clipNames.filter((n) => !(X.stats['clip:' + n] > 0)) };
+  });
+  server.close();
+  check('sound: every recorded clip loads and plays over http', clips.notClip.length === 0, `loaded=${clips.loaded} fallback=${clips.notClip.join(',')}`);
+
   check('no page or console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close();
   console.log(failed ? `\n${failed} check(s) failed` : '\nall checks passed');

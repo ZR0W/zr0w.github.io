@@ -1,10 +1,14 @@
-// Tilebound — sound effects, synthesized with the Web Audio API (no audio files, nothing to license or download).
-// Every effect is a tiny recipe built from two primitives: tone() (an oscillator with a pitch sweep and a
-// percussive envelope) and noise() (filtered white noise with a filter sweep). Recipes receive the audio
-// context and an output node, so the same code plays live or renders offline (see the smoke test).
+// Tilebound — sound effects. Two layers:
+//  1. Recorded clips (CLIPS below) in docs/assets/audio/tilebound/, trimmed from the Sonniss GDC 2024 Game Audio
+//     Bundle (see CREDITS.txt there). Loaded after the first user gesture; a few dozen KB each.
+//  2. Synthesized recipes (SOUNDS below), built with the Web Audio API from tone() (an oscillator with a pitch sweep
+//     and a percussive envelope) and noise() (filtered white noise with a filter sweep). Every effect has one, so the
+//     game always has sound: before clips load, if a clip fails to load, or when the page is opened as a file://
+//     (browsers block fetch() there). Recipes take a context + output node, so they also render offline in tests.
 //
 // API: TileboundSfx.play(name)  ·  .setMuted(bool) / .muted  ·  .unlock() (call from a user gesture)
-//      .names (all effect names)  ·  .stats (play requests per name, for tests)  ·  .render(ctx, out, name, t)
+//      .names (all effect names)  ·  .clipNames  ·  .clipsLoaded  ·  .stats (play requests per name, for tests)
+//      .render(ctx, out, name, t) (synth recipe, offline)
 // Which effect each hero/enemy uses is the `sfx` field in tilebound-data.js.
 (() => {
   'use strict';
@@ -116,6 +120,63 @@
     gameOver: (c, o, t) => notes(c, o, t, [392, 330, 262, 196], 0.22, { type: 'triangle', dur: 0.32, vol: 0.14 }),
   };
 
+  // ---------- recorded clips ----------
+  // effect name → { file (or list of files, picked at random), gain, rate (playback speed = pitch), jitter (± random rate) }.
+  // Effects not listed here always use their synthesized recipe.
+  const CLIPS = {
+    click: { file: 'ui-click', gain: 0.3 },
+    select: { file: 'ui-select', gain: 0.35 },
+    start: { file: 'run-start', gain: 0.45 },
+    blocked: { file: 'stone-thud', gain: 0.5, rate: 0.9 },
+    fire: { file: ['magic-1', 'magic-2'], gain: 0.45, jitter: 0.05 },
+    shield: { file: 'steel-clang', gain: 0.6, jitter: 0.04 },
+    bomb: { file: 'bomb', gain: 0.75, jitter: 0.04 },
+    wrench: { file: 'steel-clang', gain: 0.3, rate: 1.8, jitter: 0.05 },
+    build: { file: 'turret-build', gain: 0.6 },
+    squelch: { file: 'slosh', gain: 0.8, jitter: 0.08 },
+    club: { file: 'stone-hammer', gain: 0.7, jitter: 0.06 },
+    slam: { file: 'stone-heavy', gain: 0.9, rate: 0.75, jitter: 0.04 },
+    hit: { file: 'hit', gain: 0.45, jitter: 0.08 },
+    heroHurt: { file: 'hit', gain: 0.5, rate: 0.8, jitter: 0.05 },
+    enemyDie: { file: 'crumble', gain: 0.5, jitter: 0.08 },
+    heal: { file: 'heal', gain: 0.35 },
+    potion: { file: 'potion', gain: 0.6, jitter: 0.04 },
+    shrine: { file: 'shrine', gain: 0.45 },
+    spikes: { file: 'steel-clang', gain: 0.35, rate: 1.5, jitter: 0.05 },
+    gameOver: { file: 'game-over', gain: 0.6 },
+  };
+  const AUDIO_DIR = new URL('../assets/audio/tilebound/', document.currentScript?.src || location.href);
+  const buffers = new Map(); // file → AudioBuffer
+  let clipsRequested = false;
+  function loadClips(c) {
+    if (clipsRequested || location.protocol === 'file:') return;
+    clipsRequested = true;
+    const files = new Set(Object.values(CLIPS).flatMap((d) => [].concat(d.file)));
+    for (const f of files) {
+      fetch(new URL(f + '.wav', AUDIO_DIR))
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status))))
+        .then((ab) => c.decodeAudioData(ab))
+        .then((buf) => buffers.set(f, buf))
+        .catch(() => { /* keep the synthesized fallback for this clip */ });
+    }
+  }
+  function playClip(c, name, t) {
+    const d = CLIPS[name];
+    if (!d) return false;
+    const files = [].concat(d.file);
+    const buf = buffers.get(files[Math.floor(Math.random() * files.length)]);
+    if (!buf) return false;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = (d.rate || 1) * (1 + (Math.random() * 2 - 1) * (d.jitter || 0));
+    const g = c.createGain();
+    g.gain.value = d.gain;
+    src.connect(g).connect(master);
+    src.start(t);
+    stats['clip:' + name] = (stats['clip:' + name] || 0) + 1;
+    return true;
+  }
+
   // ---------- live playback ----------
   function unlock() {
     if (!ctx) {
@@ -126,6 +187,7 @@
       master.gain.value = muted ? 0 : VOLUME;
       const comp = ctx.createDynamicsCompressor(); // keeps stacked hits from clipping
       master.connect(comp).connect(ctx.destination);
+      loadClips(ctx);
     }
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     return ctx;
@@ -145,7 +207,7 @@
     const now = c.currentTime;
     if (now - (lastPlayed.get(name) ?? -1) < 0.035) return; // the same effect several times at once sounds like one
     lastPlayed.set(name, now);
-    try { SOUNDS[name](c, master, now + 0.005); } catch { /* audio must never break the game */ }
+    try { if (!playClip(c, name, now + 0.005)) SOUNDS[name](c, master, now + 0.005); } catch { /* audio must never break the game */ }
   }
 
   function setMuted(m) {
@@ -158,6 +220,8 @@
     play, unlock, setMuted, stats,
     get muted() { return muted; },
     names: Object.keys(SOUNDS),
+    clipNames: Object.keys(CLIPS),
+    get clipsLoaded() { return [...buffers.keys()]; },
     render: (c, out, name, t = 0) => SOUNDS[name](c, out, t), // for offline rendering in tests
   };
 })();
