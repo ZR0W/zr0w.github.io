@@ -1,0 +1,28 @@
+Tilebound sound effects
+=======================
+
+The recorded clips in this folder are short, trimmed and processed excerpts (mono, 32 kHz, faded, peak-normalized)
+from the Sonniss.com GDC 2024 Game Audio Bundle, used under the Sonniss GDC bundle license (royalty-free use in
+projects; the original library may not be redistributed). The original, unprocessed files are not in this repository.
+Every other effect in the game is synthesized in code (docs/js/tilebound-sfx.js).
+
+clip               used for                                   source pack / file
+-----------------  -----------------------------------------  ------------------------------------------------------------
+ui-click.wav       button click                               BluezoneCorp - Tiny Gears - Small Mechanism / ..._click_003
+ui-select.wav      hero / party-card select                   BluezoneCorp - Tiny Gears - Small Mechanism / ..._click_complex_011
+turret-build.wav   Engineer builds a turret                   BluezoneCorp - Tiny Gears - Small Mechanism / ..._sequence_spinning_008
+stone-thud.wav     refused (blocked) move                     BluezoneCorp - Stone Impact / Bluezone_BC0297_stone_impact_015
+stone-heavy.wav    Stone Golem slam                           BluezoneCorp - Stone Impact / Bluezone_BC0297_stone_impact_041
+stone-hammer.wav   Orc club, boulder impact                   BluezoneCorp - Stone Impact / Bluezone_BC0297_stone_impact_hammer_015
+steel-clang.wav    Guardian shield, spike trap, Engineer      BluezoneCorp - Stone Impact / Bluezone_BC0297_stone_impact_steel_bar_01_010
+                   wrench (re-pitched)
+bomb.wav           Bombardier bomb                            DavidDumais - Explosion SFX Pack / EXPLReal_Medium Realistic Explosion 15
+crumble.wav        enemy destroyed                            DavidDumais - Explosion SFX Pack / WOODCrsh_Designed Wood Crash And Debris 13
+game-over.wav      squad fallen                               DavidDumais - Explosion SFX Pack / EXPLDsgn_Nuclear Explosion 07
+run-start.wav      run start                                  Doex Studio - 90s Anime SFX Pack / Short_PowerUp_005 (take 2)
+shrine.wav         shrine                                     Doex Studio - 90s Anime SFX Pack / Short_PowerUp_005 (take 3)
+heal.wav           heal                                       Doex Studio - 90s Anime SFX Pack / Short_PowerUp_005 (take 4)
+hit.wav            enemy hit, hero hurt (re-pitched)          Doex Studio - 90s Anime SFX Pack / Noise_Punch_006
+magic-1/2.wav      Mage Arc Flame                             Doex Studio - 90s Anime SFX Pack / Laser_Beam_004 (takes 1, 2)
+potion.wav         potion                                     Eiravaein Works - Flask / OBJCont_Flask,glass,figuredbottle,...,alt4
+slosh.wav          Slime attack                               Eiravaein Works - Flask / OBJCont_Flask,wood,canteen,...,sloshing

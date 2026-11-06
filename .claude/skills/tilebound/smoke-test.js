@@ -2,7 +2,8 @@
 //   node .claude/skills/tilebound/smoke-test.js            # ~2 min
 //   TURNS=40 node .claude/skills/tilebound/smoke-test.js   # quicker
 // Checks: no page errors on game + wiki; terrain validity over many rows; a random-party run where after
-// every turn no unit overlaps or sits in a wall and heroes stay in the zone; a few rule scenarios.
+// every turn no unit overlaps or sits in a wall and heroes stay in the zone; a few rule scenarios; sound
+// effects (offline render of each, plus the effects a combat turn should trigger).
 // Exits non-zero on any failure. It is a dev tool only — nothing in docs/ depends on it.
 const path = require('path');
 const { chromium } = require('playwright');
@@ -95,6 +96,53 @@ const check = (name, ok, info = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  $
     return out;
   });
   for (const [k, v] of Object.entries(rules)) check('rule: ' + k, v === true);
+
+  // ---- sound: every effect renders (not silent, not clipping) and game events trigger the right ones ----
+  const sound = await page.evaluate(async () => {
+    const X = window.TileboundSfx, T = window.tilebound, sl = (ms) => new Promise((r) => setTimeout(r, ms));
+    const bad = [];
+    for (const n of X.names) {
+      const c = new OfflineAudioContext(1, 44100, 44100);
+      X.render(c, c.destination, n, 0.01);
+      const d = (await c.startRendering()).getChannelData(0);
+      let peak = 0; for (const v of d) peak = Math.max(peak, Math.abs(v));
+      if (peak < 0.02 || peak > 0.99) bad.push(n + ':' + peak.toFixed(3));
+    }
+    const { HEROES, ENEMIES } = window.TILEBOUND;
+    const missing = [...Object.values(HEROES), ...Object.values(ENEMIES)].filter((d) => !X.names.includes(d.sfx)).map((d) => d.name);
+    const before = { ...X.stats };
+    T.newGame(3, ['ranger', 'knight', 'mage', 'cleric']); const S = T.state;
+    S.enemies = []; S.items = []; for (const r of S.rows.keys()) S.rows.set(r, Array(7).fill('.'));
+    S.enemies.push({ id: 'eS', kind: 'enemy', type: 'goblin', x: 3, r: 2, hp: 9, maxHp: 9, dmg: 1, dir: 1, flee: 0 });
+    T.tryMove('hold'); while (T.state.busy) await sl(8);
+    const fired = ['hold', 'slash', 'hit', 'claw', 'heroHurt'].filter((n) => (X.stats[n] || 0) > (before[n] || 0));
+    return { bad, missing, fired: fired.length === 5 ? 'all' : fired.join(',') };
+  });
+  check('sound: every effect renders audibly without clipping', sound.bad.length === 0, sound.bad.join(' '));
+  check('sound: every hero/enemy sfx exists', sound.missing.length === 0, sound.missing.join(', '));
+  check('sound: a combat turn fires hold/slash/hit/claw/heroHurt', sound.fired === 'all', sound.fired);
+
+  // ---- recorded clips: only load over http(s), so serve the repo with a tiny built-in server ----
+  const http = require('http'), fs = require('fs');
+  const server = http.createServer((req, res) => {
+    const file = path.join(root, decodeURIComponent(req.url.split('?')[0]));
+    if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end(); }
+    const type = { '.html': 'text/html', '.js': 'text/javascript', '.wav': 'audio/wav' }[path.extname(file)] || 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': type }); fs.createReadStream(file).pipe(res);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  await page.goto(`http://127.0.0.1:${server.address().port}/docs/tools/tilebound.html?seed=1`);
+  await page.click('#pGo'); // the user gesture that unlocks audio and starts loading clips
+  const clips = await page.evaluate(async () => {
+    const X = window.TileboundSfx, sl = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 100; i++) { // up to 5 s for the clips to download and decode
+      await sl(50);
+      if (X.clipNames.every((n) => { X.play(n); return X.stats['clip:' + n] > 0; })) break;
+    }
+    return { loaded: X.clipsLoaded.length, notClip: X.clipNames.filter((n) => !(X.stats['clip:' + n] > 0)) };
+  });
+  server.close();
+  check('sound: every recorded clip loads and plays over http', clips.notClip.length === 0, `loaded=${clips.loaded} fallback=${clips.notClip.join(',')}`);
 
   check('no page or console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close();
