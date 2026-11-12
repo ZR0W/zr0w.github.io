@@ -18,6 +18,7 @@ docs/
     index.html               # blog listing, newest post first
     <slug>.html              # one post per file
   vietnamese-learning-plan.md  # content/planning notes for the learning tool
+tests/bill-splitter.test.js    # fixture tests for the bill splitter's receipt parser (`node tests/bill-splitter.test.js`)
 .cursor/skills/add-webtool/  # Cursor skill + examples for scaffolding a new tool
 .claude/skills/tilebound/     # agent guide + smoke test for the Tilebound game and its wiki
 ```

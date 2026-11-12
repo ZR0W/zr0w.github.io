@@ -7,204 +7,150 @@
     <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
     <style>
         a.back { margin-bottom: 1rem; display: inline-block; }
-        .intro details { margin-top: 0.5rem; font-size: 0.95rem; color: #444; }
-        .panel {
-            margin: 1rem 0;
-            padding: 1rem;
-            background: #f5f5f5;
-            border-radius: 6px;
-        }
-        .panel h2 { margin-top: 0; font-size: 1.1rem; }
-        .item-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-        .item-row input[type="text"] { flex: 1 1 10rem; min-width: 8rem; }
-        .item-row input[type="number"] { width: 6rem; }
-        .item-row button {
-            padding: 0.35rem 0.6rem;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 1px solid #ccc;
-            background: #fff;
-        }
-        .item-row button:hover { background: #eee; }
-        .item-row button.remove { color: #800; border-color: #c88; }
-        .item-row button.remove .remove-short { display: none; }
-        .toolbar { margin-top: 0.75rem; }
-        .toolbar button {
-            padding: 0.45rem 0.75rem;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 1px solid #333;
-            background: #fff;
-        }
-        .toolbar button:hover { background: #eee; }
-        .summary-grid {
+        [hidden] { display: none !important; }
+        .muted { color: var(--text-light); font-size: .9rem; }
+        .panel { margin: 1rem 0; padding: 1rem; background: var(--accent-bg); border-radius: 6px; }
+        .panel h2 { margin-top: 0; font-size: 1.15rem; }
+        .panel h3 { font-size: 1rem; margin: 1.25rem 0 .5rem; }
+        .intro details { font-size: .95rem; }
+        .intro details p, .intro details li { font-size: .9rem; }
+
+        /* ─── Paste ─────────────────────────────────────────────────────────── */
+        #paste { width: 100%; box-sizing: border-box; font-family: var(--mono-font, monospace); font-size: .85rem; }
+        .btn-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+        .btn-row button { margin: 0; }
+        button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+        button.secondary:hover { background: var(--bg); }
+        .notice { padding: .5rem .75rem; border-radius: 6px; margin: .75rem 0 0; }
+        .notice:empty { display: none; }
+        .notice.ok    { background: #e6f6ea; border: 1px solid #5b5; color: #064; }
+        .notice.error { background: #fdd; border: 1px solid #f66; color: #800; }
+        .notice.warn  { background: #fff8e6; border: 1px solid #da0; color: #630; }
+        .notice.info  { background: #e8f4fc; border: 1px solid #6af; color: #036; }
+
+        /* ─── Checks ────────────────────────────────────────────────────────── */
+        ul.checks { list-style: none; padding: 0; margin: 0 0 1rem; font-size: .92rem; }
+        ul.checks li { padding: .15rem 0 .15rem 1.5rem; position: relative; }
+        ul.checks li::before { position: absolute; left: 0; font-weight: bold; }
+        ul.checks li.ok::before   { content: '✓'; color: #2a8a3e; }
+        ul.checks li.bad::before  { content: '!'; color: #c60; left: .3rem; }
+        ul.checks li.note::before { content: 'i'; color: var(--accent); left: .3rem; font-style: italic; }
+        .receipt-date { font-size: .9rem; color: var(--text-light); margin: -.5rem 0 .75rem; }
+
+        /* ─── Item rows ─────────────────────────────────────────────────────── */
+        .item-head, .item-row {
             display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 0.5rem 1rem;
-            align-items: center;
-            max-width: 20rem;
+            grid-template-columns: 1fr 4rem 6.5rem 3.5rem 2.5rem;
+            gap: .4rem;
+            align-items: start;
         }
+        .item-head { font-size: .8rem; color: var(--text-light); font-weight: bold; margin-bottom: .25rem; }
+        .item-row { margin-bottom: .4rem; }
+        .item-row input { margin: 0; width: 100%; box-sizing: border-box; padding: .4rem .5rem; }
+        .item-mods { font-size: .78rem; color: var(--text-light); margin: .15rem 0 0 .25rem; }
+        .row-btn {
+            margin: 0; padding: .4rem .45rem; font-size: .8rem; line-height: 1.2;
+            background: var(--bg); color: var(--text); border: 1px solid var(--border);
+        }
+        .row-btn:hover { background: var(--accent-bg); }
+        .row-btn.remove { color: #b33; font-size: 1.05rem; padding: .3rem .5rem; }
+        .item-row .split[hidden] { display: block !important; visibility: hidden; }
+        .items-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; margin-top: .5rem; }
+        .items-foot button { margin: 0; }
+
+        #ignoredBox { margin-top: 1rem; font-size: .9rem; }
+        #ignoredList { list-style: none; padding: 0; margin: .5rem 0 0; }
+        #ignoredList li { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: center; padding: .3rem 0; border-bottom: 1px solid var(--border); }
+        .ign-text { font-family: var(--mono-font, monospace); font-size: .82rem; flex: 1 1 14rem; word-break: break-word; }
+        .ign-why { font-size: .78rem; color: var(--text-light); }
+
+        /* ─── Totals ────────────────────────────────────────────────────────── */
+        .summary-grid { display: grid; grid-template-columns: auto 1fr; gap: .4rem 1rem; align-items: center; max-width: 24rem; }
         .summary-grid label { font-weight: bold; }
-        .summary-grid label.total-label { font-size: 1.05rem; }
-        .summary-grid input[type="number"] { width: 100%; max-width: 8rem; }
-        .summary-grid input#total { font-weight: bold; }
-        .summary-grid .field-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-        .summary-grid button.linkish {
-            padding: 0.2rem 0.5rem;
-            font-size: 0.85rem;
-            border-radius: 4px;
-            cursor: pointer;
-            border: 1px solid #ccc;
-            background: #fff;
+        .summary-grid label small { font-weight: normal; color: var(--text-light); }
+        .summary-grid input { margin: 0; width: 100%; max-width: 8rem; }
+        .summary-grid .field-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+        .summary-grid .field-row button { margin: 0; padding: .25rem .5rem; font-size: .8rem; }
+        #total { font-weight: bold; }
+
+        /* ─── Split board ───────────────────────────────────────────────────── */
+        .people-bar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem; }
+        .people-bar button { margin: 0; }
+        .add-person-inline { display: inline-flex; gap: .4rem; align-items: center; }
+        .add-person-inline input { margin: 0; width: 9rem; padding: .35rem .5rem; }
+        .add-person-inline button { margin: 0; padding: .35rem .7rem; }
+        .section-hint { font-size: .8rem; color: var(--text-light); font-style: italic; margin: 0 0 .4rem; }
+
+        .pool { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+        .pool-card {
+            background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px;
+            padding: .45rem .6rem; width: 138px; box-sizing: border-box;
+            cursor: grab; user-select: none; transition: transform .12s, border-color .15s;
         }
-        .summary-grid button.linkish:hover { background: #eee; }
-        .items-sum-row {
-            margin-top: 0.5rem;
-            font-size: 0.95rem;
-            color: #444;
+        .pool-card:hover { transform: translateY(-2px); }
+        .pool-card.assigned { opacity: .7; }
+        .pool-card.dragging { opacity: .4; }
+        .pool-card.touch-selected { border-color: #2a7fd4; box-shadow: 0 0 0 3px rgba(42,127,212,.3); opacity: 1; }
+        .card-name { display: block; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-price { display: block; font-weight: bold; font-variant-numeric: tabular-nums; }
+        .card-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: .3rem; min-height: 10px; }
+        .badge-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+        .lanes { display: flex; gap: .85rem; overflow-x: auto; padding-bottom: .5rem; }
+        .lane {
+            flex: 0 0 210px; background: var(--bg);
+            border: 2px solid var(--border); border-left: 4px solid var(--lane-color);
+            border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
         }
-        .items-sum-row strong { font-variant-numeric: tabular-nums; }
-        table.split-table { margin-top: 1rem; width: 100%; max-width: 36rem; }
+        .lane.drag-over { border-color: var(--lane-color); }
+        .lane-header { display: flex; align-items: center; gap: .4rem; padding: .5rem .65rem; border-bottom: 1px solid var(--border); }
+        .lane-color-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--lane-color); flex-shrink: 0; }
+        .lane-name { flex: 1; font-weight: bold; font-size: .9rem; outline: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lane-name:focus { background: var(--accent-bg); border-radius: 3px; }
+        .lane-del, .card-rm { background: none; border: none; color: var(--text-light); cursor: pointer; padding: 0 .2rem; margin: 0; font-size: 1rem; line-height: 1; }
+        .lane-del:hover, .card-rm:hover { color: #d00; background: none; }
+        .lane-body { flex: 1; padding: .5rem; display: flex; flex-direction: column; gap: .4rem; min-height: 90px; cursor: pointer; }
+        .lane-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-light); font-size: .8rem; text-align: center; pointer-events: none; }
+        .lane-card { background: var(--accent-bg); border: 1px solid var(--border); border-radius: 6px; padding: .3rem 1.4rem .3rem .5rem; position: relative; cursor: grab; }
+        .card-main { display: flex; justify-content: space-between; gap: .4rem; align-items: baseline; }
+        .lane-card .card-name { font-size: .82rem; flex: 1; }
+        .lane-card .card-price { font-size: .85rem; }
+        .card-share { font-size: .74rem; color: var(--text-light); }
+        .card-rm { position: absolute; top: 4px; right: 4px; }
+        .lane-footer { padding: .5rem .65rem; border-top: 1px solid var(--border); font-size: .82rem; }
+        .lane-frow { display: flex; justify-content: space-between; color: var(--text-light); }
+        .lane-frow.total { color: var(--text); font-weight: bold; font-size: .95rem; border-top: 1px solid var(--border); margin-top: .3rem; padding-top: .3rem; }
+        .lane-fval { font-variant-numeric: tabular-nums; }
+
+        ul.owe-list { list-style: none; padding: 0; margin: 1rem 0 0; max-width: 24rem; }
+        ul.owe-list li { display: flex; align-items: center; gap: .5rem; padding: .3rem 0; border-bottom: 1px solid var(--border); }
+        .owe-name { flex: 1; }
+        .owe-amt { font-variant-numeric: tabular-nums; }
+        ul.owe-list li.unassigned { color: #b60; }
+        ul.owe-list li.owe-total { border-bottom: none; color: var(--text-light); }
+
+        #perItemBox { margin-top: 1rem; }
+        table.split-table { width: 100%; max-width: 36rem; margin-top: .5rem; }
         .split-table th, .split-table td { text-align: right; }
         .split-table th:first-child, .split-table td:first-child { text-align: left; }
         .split-table .request { font-weight: bold; font-variant-numeric: tabular-nums; }
-        .notice {
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            margin: 0.75rem 0;
-            min-height: 1.5rem;
-        }
-        .notice.error { background: #fdd; border: 1px solid #f66; color: #800; }
-        .notice.warn { background: #fff8e6; border: 1px solid #da0; color: #630; }
-        .notice.info { background: #e8f4fc; border: 1px solid #6af; color: #036; }
-        .notice:empty { display: none; }
-        .totals-foot { font-weight: bold; }
 
         @media (max-width: 600px) {
+            .item-head { display: none; }
             .item-row {
-                display: grid;
-                grid-template-columns: 1fr auto;
-                grid-template-rows: auto auto;
-                gap: 0.5rem;
-                margin-bottom: 0.75rem;
+                grid-template-columns: 4rem 1fr auto auto;
+                padding-bottom: .5rem; border-bottom: 1px solid var(--border);
             }
-            .item-row input[type="text"] {
-                grid-column: 1 / -1;
-                width: 100%;
-                min-width: 0;
-            }
-            .item-row input[type="number"] {
-                width: 100%;
-                min-width: 0;
-                min-height: 44px;
-                font-size: 16px;
-            }
-            .item-row input[type="text"] {
-                min-height: 44px;
-                font-size: 16px;
-            }
-            .item-row button.remove {
-                min-width: 44px;
-                min-height: 44px;
-                padding: 0 0.75rem;
-                font-size: 1.25rem;
-                line-height: 1;
-            }
-            .item-row button.remove .remove-long { display: none; }
-            .item-row button.remove .remove-short { display: inline; }
-
-            .toolbar button,
-            .summary-grid button.linkish {
-                width: 100%;
-                min-height: 44px;
-                padding: 0.6rem 0.75rem;
-                font-size: 1rem;
-            }
-
-            .summary-grid {
-                grid-template-columns: 1fr;
-                max-width: none;
-                gap: 0.35rem;
-            }
-            .summary-grid label { margin-top: 0.5rem; }
-            .summary-grid label:first-of-type { margin-top: 0; }
-            .summary-grid input[type="number"] {
-                max-width: none;
-                min-height: 44px;
-                font-size: 16px;
-            }
-            .summary-grid input#total {
-                border: 2px solid #333;
-            }
-            .summary-grid .field-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .split-table thead { display: none; }
-            .split-table tbody tr,
-            .split-table tfoot tr {
-                display: block;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                padding: 0.75rem;
-                margin-bottom: 0.75rem;
-                background: #fff;
-            }
-            .split-table tbody td,
-            .split-table tfoot td {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 1rem;
-                text-align: right;
-                padding: 0.35rem 0;
-                border: none;
-            }
-            .split-table tbody td::before,
-            .split-table tfoot td::before {
-                content: attr(data-label);
-                font-weight: bold;
-                text-align: left;
-                flex-shrink: 0;
-            }
-            .split-table tbody td:first-child {
-                font-size: 1.05rem;
-                font-weight: bold;
-                border-bottom: 1px solid #eee;
-                padding-bottom: 0.5rem;
-                margin-bottom: 0.25rem;
-            }
-            .split-table tbody td:first-child::before { display: none; }
-            .split-table tbody td.request {
-                font-size: 1.15rem;
-                border-top: 1px solid #eee;
-                padding-top: 0.5rem;
-                margin-top: 0.25rem;
-            }
-            .split-table tfoot tr {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                background: #f5f5f5;
-                margin-bottom: 0;
-            }
-            .split-table tfoot td {
-                display: block;
-                padding: 0;
-            }
-            .split-table tfoot td::before {
-                display: none;
-            }
-            .split-table tfoot td:last-child {
-                font-size: 1.1rem;
-            }
+            .item-name-wrap { grid-column: 1 / -1; }
+            .item-row input, .summary-grid input, #paste { font-size: 16px; }
+            .item-row input, .row-btn { min-height: 44px; }
+            .row-btn.remove { min-width: 44px; }
+            .item-row .split[hidden] { display: none !important; }
+            .summary-grid { grid-template-columns: 1fr 1fr; }
+            .summary-grid input { max-width: none; min-height: 44px; }
+            .lanes { flex-direction: column; overflow-x: visible; }
+            .lane { flex: 0 0 auto; width: 100%; }
+            .pool-card { width: calc(50% - .25rem); }
         }
     </style>
 </head>
@@ -212,58 +158,88 @@
     <a class="back" href="../index.html">← Back</a>
     <h1>Bill splitter</h1>
     <div class="intro">
-        <p>Split a bill: enter items, subtotal, and total.</p>
+        <p>Paste a receipt in any format, check what was read, then split it between people. Everything runs in your browser; nothing is sent anywhere.</p>
         <details>
             <summary>How it works</summary>
-            <p>Total updates from subtotal + tax + tip — or enter total directly (tax and tip clear). Each request = item price ÷ subtotal × total.</p>
+            <ul>
+                <li>Copy the text of a receipt (Toast, Square, an email, or just notes like <code>burger 12</code>) and paste it. The reader finds item lines, the subtotal, tax, tip and total, and skips card and payment lines.</li>
+                <li>It checks the numbers add up. If they don't, it tries other readings, such as a quantity line being a per-unit price or an add-on already included, and keeps the one that fits.</li>
+                <li>Lines with an amount it didn't use are listed so you can add them as items with one click.</li>
+                <li>Each person pays their items' share of the items sum × the total, so tax, tip and fees are split in proportion. An item given to several people is divided evenly between them. Amounts are rounded so they add up to the total exactly.</li>
+            </ul>
         </details>
     </div>
 
     <div class="panel">
-        <h2>Items</h2>
-        <div id="itemList" aria-label="Bill items"></div>
-        <div class="toolbar">
-            <button type="button" id="addItemBtn">+ Add item</button>
+        <h2>1. Paste the receipt</h2>
+        <textarea id="paste" rows="9" placeholder="Paste receipt text here (Ctrl/⌘+A, Ctrl/⌘+C on the receipt page)…" spellcheck="false"></textarea>
+        <div class="btn-row">
+            <button type="button" id="parseBtn">Read receipt</button>
+            <button type="button" id="manualBtn" class="secondary">Enter items by hand</button>
+            <button type="button" id="sampleBtn" class="secondary">Try an example</button>
         </div>
-        <p class="items-sum-row">Items sum: <strong id="itemsSum">—</strong></p>
+        <div id="parseNotice" class="notice" role="status"></div>
     </div>
 
-    <div class="panel">
-        <h2>Bill summary</h2>
-        <div class="summary-grid">
-            <label for="subtotal">Subtotal</label>
-            <div class="field-row">
-                <input type="number" id="subtotal" min="0" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
-                <button type="button" class="linkish" id="useItemsSumBtn">Use items sum</button>
+    <div id="reviewSection" hidden>
+        <div class="panel">
+            <h2>2. Check the items</h2>
+            <p id="receiptDate" class="receipt-date"></p>
+            <ul id="checks" class="checks" aria-live="polite"></ul>
+
+            <div class="item-head" aria-hidden="true">
+                <span>Item</span><span>Qty</span><span>Price</span><span></span><span></span>
             </div>
-            <label for="tax">Tax</label>
-            <input type="number" id="tax" min="0" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
-            <label for="tip">Tip</label>
-            <input type="number" id="tip" min="0" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
-            <label for="total" class="total-label">Total</label>
-            <input type="number" id="total" min="0" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
+            <div id="itemRows"></div>
+            <div class="items-foot">
+                <button type="button" id="addItemBtn" class="secondary">+ Add item</button>
+                <span class="muted">Items sum: <strong id="itemsSum">$0.00</strong></span>
+            </div>
+
+            <details id="ignoredBox" hidden>
+                <summary>Lines with amounts that weren't used (<span id="ignoredCount">0</span>)</summary>
+                <ul id="ignoredList"></ul>
+            </details>
+
+            <h3>Totals</h3>
+            <div class="summary-grid">
+                <label for="subtotal">Subtotal</label>
+                <div class="field-row">
+                    <input type="number" id="subtotal" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
+                    <button type="button" id="useItemsSumBtn" class="secondary">Use items sum</button>
+                </div>
+                <label for="tax">Tax</label>
+                <input type="number" id="tax" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
+                <label for="tip">Tip</label>
+                <input type="number" id="tip" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
+                <label for="other">Other <small>(fees − discounts)</small></label>
+                <input type="number" id="other" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
+                <label for="total">Total</label>
+                <input type="number" id="total" step="0.01" placeholder="0.00" inputmode="decimal" autocomplete="off">
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>3. Split between people</h2>
+            <div class="people-bar">
+                <button type="button" id="addPersonBtn">+ Add person</button>
+                <button type="button" id="shareRestBtn" class="secondary">Share unassigned items with everyone</button>
+            </div>
+            <p class="section-hint">Drag an item onto a person, or tap an item and then tap a person. Give an item to several people to share it. Click a name to rename.</p>
+            <div id="pool" class="pool"></div>
+            <div id="lanes" class="lanes"></div>
+            <div id="splitNotice" class="notice" role="status"></div>
+            <div id="splitSummary"></div>
+
+            <details id="perItemBox" hidden>
+                <summary>Each item with its share of tax and tip</summary>
+                <table class="split-table">
+                    <thead><tr><th>Item</th><th>Price</th><th>Share</th><th>With tax &amp; tip</th></tr></thead>
+                    <tbody id="perItemBody"></tbody>
+                </table>
+            </details>
         </div>
     </div>
-
-    <div id="notice" class="notice" role="status"></div>
-
-    <table class="split-table" id="resultsTable" hidden>
-        <thead>
-            <tr>
-                <th>Item</th>
-                <th>Price</th>
-                <th>Share</th>
-                <th>Request</th>
-            </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-        <tfoot>
-            <tr class="totals-foot">
-                <td colspan="3">Sum of requests</td>
-                <td id="requestsSum">—</td>
-            </tr>
-        </tfoot>
-    </table>
 
     <script src="../js/bill-splitter.js"></script>
 </body>
