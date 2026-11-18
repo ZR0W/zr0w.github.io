@@ -9,6 +9,7 @@
 - **[Seamless quadrant pattern generator](docs/tools/pattern-generator.html)** – Draw in four quadrants, shuffle for seamless tiling, view/export infinite pannable pattern; undo/redo, guide toggle.
 - **[Vietnamese learning](docs/tools/vietnamese-learning.html)** – Native numbers 1–10; click a word for in-page pronunciation (hotlinked Omniglot audio).
 - **[US airline hub map](docs/tools/us-airline-hub-map.html)** – Every hub, operating base, and focus city for the nine major US carriers on one map; toggle carriers on/off, hover for details.
+- **[Signal Search](docs/tools/signal-search.html)** – Find a treasure hidden on a terrain grid you can't see: launch drawn, greedy or leveler nodes, pay for traces, pings and radar from an energy reserve, and read their reports as the fog lifts.
 
 ### Blog
 

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal Search – Webtools</title>
+<!-- Full-page game with its own neon console theme: Simple.css is intentionally omitted (it would fight the layout). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* single-theme neon instrument console (grid edition): black panels, amber = your signals and chrome, phosphor green = terrain readings, cyan = slope trace, red = alerts. Two views: play (map + loadout) and world settings (preview + layer stack) */
+  --ink:#040403; --panel:#0a0907; --line:#4a2f08; --text:#f5d9a8; --muted:#a8803c;
+  --signal:#ff9d00; --cyan:#3dff8b; --coral:#3fd8ff; --red:#ff2a2a; --green:#3dff8b; --lav:#965aff;
+  --display:"Barlow Condensed","Arial Narrow","Helvetica Neue",sans-serif;
+  --body:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--text);font-family:var(--body);font-size:14px;line-height:1.5}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.wrap::before{content:"";display:block;height:10px;margin-bottom:12px;background:repeating-linear-gradient(-45deg,var(--signal) 0 10px,transparent 10px 20px)}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;margin-bottom:14px;padding-bottom:12px;border-bottom:2px solid var(--signal)}
+.brand{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
+h1{font-family:var(--display);font-weight:700;font-size:34px;line-height:1;letter-spacing:.06em;text-transform:uppercase;margin:0;color:var(--signal);text-shadow:0 0 12px rgba(255,157,0,.55);text-wrap:balance}
+h1 span{color:var(--red);text-shadow:0 0 12px rgba(255,42,42,.6)}
+h2{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#000;background:var(--signal);display:inline-block;padding:1px 10px 0;margin:0}
+nav{display:flex;gap:0;border:1px solid var(--signal)}
+nav a{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);text-decoration:none;padding:3px 14px}
+nav a.on{background:var(--signal);color:#000}
+nav a:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:3px 9px;border:1px solid var(--line);border-left:4px solid var(--signal);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip b{font-weight:500;color:var(--green);text-shadow:0 0 8px rgba(61,255,139,.6)}
+.chip.good{border-left-color:var(--green)} .chip.good b{color:var(--green)}
+.chip.bad{border-left-color:var(--red)} .chip.bad b{color:var(--red);text-shadow:0 0 8px rgba(255,42,42,.6)}
+.grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:900px){.grid{grid-template-columns:minmax(0,1.15fr) minmax(320px,1fr)}}
+.card{position:relative;background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--signal);padding:14px}
+.card::after{content:"";position:absolute;right:-1px;bottom:-1px;width:14px;height:14px;border-right:2px solid var(--signal);border-bottom:2px solid var(--signal)}
+.card>h2{margin-bottom:10px}
+canvas.map{width:100%;aspect-ratio:1;display:block;background:#040403;border:1px solid var(--signal);box-shadow:0 0 18px rgba(255,157,0,.18)}
+#map{touch-action:none;cursor:crosshair}
+.hint{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+button{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);background:transparent;border:1px solid var(--signal);border-radius:0;padding:5px 12px;cursor:pointer}
+button:hover{background:rgba(255,157,0,.14)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+button.on{background:var(--signal);color:#000}
+button.go{background:var(--signal);border-color:var(--signal);color:#000;font-weight:700;font-size:20px;letter-spacing:.14em;padding:8px 16px;width:100%;box-shadow:0 0 16px rgba(255,157,0,.4)}
+button.go:hover{background:#ffb640}
+button.go:disabled{background:transparent;color:var(--muted);border-color:var(--line);box-shadow:none;cursor:not-allowed}
+.presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.presets button{font-size:14px;padding:5px 4px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+label,.lbl{display:flex;flex-direction:column;gap:3px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+select,input[type=number]{font-family:var(--mono);font-size:13px;color:var(--green);background:#000;border:1px solid var(--line);border-radius:0;padding:6px;width:100%}
+.slider{grid-column:span 2}
+.slider .top{display:flex;justify-content:space-between;gap:8px}
+.slider output{font-family:var(--mono);font-size:13px;color:var(--green);text-shadow:0 0 8px rgba(61,255,139,.6);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--signal)}
+.check{flex-direction:row;align-items:center;gap:8px;font-size:12.5px;text-transform:none;letter-spacing:0;color:var(--text);grid-column:span 2}
+.check input{accent-color:var(--signal);width:16px;height:16px}
+.plan{margin-top:12px;padding:10px;border:1px solid var(--line);border-left:4px solid var(--green);background:#000;font-size:12.5px}
+.plan .big{font-family:var(--mono);font-size:16px;color:var(--green);text-shadow:0 0 8px rgba(61,255,139,.6)}
+.bar{position:relative;height:8px;background:#000;border:1px solid var(--line);margin:8px 0 4px;overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0}
+.warn{color:var(--signal)} .bad{color:var(--red);text-shadow:0 0 8px rgba(255,42,42,.5)} .ok{color:var(--green)}
+#rep{width:100%;height:190px;display:block;background:#000;border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:6px}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--c);box-shadow:0 0 6px var(--c)}
+.legend.sq span::before{height:10px;width:10px;vertical-align:-1px}
+.status{font-size:12.5px;margin-top:6px;min-height:20px}
+#log{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:12px;color:var(--green);max-height:220px;overflow:auto}
+#log li{padding:5px 0;border-bottom:1px solid var(--line)}
+#log li::before{content:"> ";color:var(--signal)}
+#log li:last-child{border-bottom:0}
+.rules{font-size:12.5px;color:var(--muted);margin:0;padding-left:18px}
+.rules li{margin:3px 0}
+.rules li::marker{color:var(--signal)}
+.stack{display:flex;flex-direction:column;gap:16px}
+.worldline{font-size:12px;color:var(--muted);margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.worldline a{color:var(--signal)}
+.sec{border-top:1px solid var(--line);padding-top:12px}
+.sec:first-child{border-top:0;padding-top:0}
+.sechead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sechead label{flex-direction:row;align-items:center;gap:6px;font-size:12px;color:var(--text)}
+.sechead input{accent-color:var(--signal);width:18px;height:18px}
+.note{font-size:12px;color:var(--muted);margin:6px 0 0}
+.sec.off .form{opacity:.35}
+.sec.off h2{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.secs{display:flex;flex-direction:column;gap:14px}
+.seedrow{display:flex;gap:6px}
+.seedrow button{white-space:nowrap}
+#genstate{font-size:12px;color:var(--muted);min-height:18px;margin-top:6px}
+.brief{margin:0 0 8px;font-size:13.5px}
+.steps{margin:0;padding-left:20px;font-size:12.5px;color:var(--muted)}
+.steps li{margin:3px 0}
+.steps li::marker{color:var(--signal)}
+a.inl{color:var(--signal);text-transform:none;letter-spacing:0;font-size:12.5px}
+a.back{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:3px 10px}
+a.back:hover{color:var(--signal);border-color:var(--signal)}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:4px}.seg2{grid-template-columns:repeat(2,minmax(0,1fr))}.seg5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.seg button{padding:5px 2px;font-size:15px;line-height:1.15}.seg small{display:block;font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:0;text-transform:none}
+.cost{width:100%;border-collapse:collapse;font-size:12.5px;color:var(--text)}.cost td{padding:5px 0;border-bottom:1px dashed var(--line);vertical-align:middle}.cost td:last-child{text-align:right;padding-left:10px;font-size:15px;color:var(--green);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cost tr.tot td{border-top:2px solid var(--signal);font-size:14px;color:var(--signal);text-transform:uppercase;letter-spacing:.06em}.cost tr.tot td:last-child{font-size:20px;color:var(--signal);text-shadow:0 0 8px rgba(255,157,0,.6)}
+.stepper{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle;flex-wrap:wrap}.stepper button{padding:1px 8px;font-size:14px;letter-spacing:0;font-family:var(--mono);font-weight:500;text-transform:none}
+.pinfo{margin-top:8px;color:var(--muted)}.pinfo b{color:var(--green);font-weight:500}
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--signal)}.tabs button{border:0;border-right:1px solid var(--signal);padding:6px 2px}.tabs button:last-child{border-right:0}
+.pane{margin-top:12px}.pane .plan{margin-top:10px}
+.mapcard canvas.map{max-width:min(100%,58svh);margin:0 auto}.mapcard .status{min-height:0;margin-top:8px;font-size:12px;color:var(--green)}.mapcard .row{margin-top:8px}.mapcard .row button{font-size:13px;padding:3px 9px}
+@media(min-width:900px){.mapcard canvas.map{max-width:min(100%,80svh)}}
+@media(max-width:600px){.wrap{padding:8px}.wrap::before{height:6px;margin-bottom:8px}header{margin-bottom:8px;padding-bottom:8px;gap:6px 12px}h1{font-size:24px}nav a{font-size:14px;padding:2px 10px}.chip{font-size:11px;padding:2px 6px}.card{padding:10px}.grid,.stack{gap:10px}.seg button{font-size:14px;padding:4px 2px}.cost td{padding:3px 0}}
+h2 .acc{all:unset;cursor:pointer;display:block}h2 .acc::after{content:" −";font-family:var(--mono)}.sec.shut h2 .acc::after{content:" +"}.sec.shut .form,.sec.shut .note{display:none}h2 .acc:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand">
+    <a class="back" href="../index.html">← Back</a>
+    <h1>Signal <span>Search</span></h1>
+    <nav aria-label="Views"><a href="#" id="navStart" class="on">Start</a><a href="#play" id="navPlay">Play</a><a href="#world" id="navWorld">World</a></nav>
+  </div>
+  <div class="stats" id="playStats" hidden>
+    <div class="chip">Round <b id="sTurn">0</b>/<span id="sMax">10</span></div>
+    <div class="chip">Reserve <b id="sRes">0</b></div>
+    <div class="chip">Cells known <b id="sObs">0</b></div>
+    <div class="chip">Treasure <b id="sDeep">hidden</b></div>
+  </div>
+</header>
+
+<!-- START VIEW -->
+<div class="grid" id="viewStart">
+  <div class="stack">
+    <div class="card">
+      <h2>Mission brief</h2>
+      <p class="brief">The terrain is a hidden grid of cells, each at a whole-number height level. One cell holds the treasure. Send nodes across the grid, read what they report, and find it before your rounds or energy run out.</p>
+      <ol class="steps">
+        <li>Pick how the node finds its way: a path you draw, Greedy, or Leveler.</li>
+        <li>Add the information you want back (Trace, Ping, Treasure radar) and set a movement budget. Every item shows its cost.</li>
+        <li>Commit, read the report, and use radar bearings to close in.</li>
+      </ol>
+      <div class="form">
+        <label for="gWorld">World type
+          <select id="gWorld"></select></label>
+        <div class="lbl"><span>Grid, levels and layers</span><a href="#world" class="inl">Open world settings</a></div>
+        <label class="check"><input type="checkbox" id="gRandSeed"> Use a new random seed each game</label>
+      </div>
+      <div class="plan" id="gSummary"></div>
+      <div class="row"><button class="go" id="bStart">Start new game</button></div>
+      <p class="hint" id="gResume" hidden>A game is in progress. <a href="#play" class="inl">Return to it</a>, or start a new one with these settings.</p>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <h2>Game settings</h2>
+      <div class="presets" id="gPresets"></div>
+      <div class="form">
+        <div class="slider"><div class="top"><label for="gRounds">Rounds</label><output id="gRounds-o"></output></div>
+          <input id="gRounds" type="range" min="3" max="30" step="1"></div>
+        <div class="slider"><div class="top"><label for="gReserve">Energy reserve</label><output id="gReserve-o"></output></div>
+          <input id="gReserve" type="range" min="40" max="600" step="20"></div>
+        <div class="slider"><div class="top"><label for="gMaxNode">Most energy one node can carry</label><output id="gMaxNode-o"></output></div>
+          <input id="gMaxNode" type="range" min="10" max="100" step="5"></div>
+        <div class="slider"><div class="top"><label for="gErr">Chance a reading is off by one level</label><output id="gErr-o"></output></div>
+          <input id="gErr" type="range" min="0" max="30" step="5"></div>
+        <label for="gRefund" style="grid-column:span 2">Energy a node has left when it stops
+          <select id="gRefund">
+            <option value="0">Lost</option>
+            <option value="0.5">Half returns to the reserve</option>
+            <option value="1">All returns to the reserve</option>
+          </select></label>
+        <label class="check"><input type="checkbox" id="gReveal"> Allow "Reveal truth" during a game</label>
+      </div>
+      <div class="row"><button id="bGReset">Reset to standard</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAY VIEW -->
+<div class="grid" id="viewPlay" hidden>
+  <div class="stack">
+    <div class="card mapcard">
+      <canvas id="map" class="map" width="640" height="640" aria-label="Belief grid. Tap or drag to plot a path, or tap a node to launch from it."></canvas>
+      <div class="status" id="lastLine">No runs yet.</div>
+      <div class="row">
+        <button id="bClear">Clear path</button>
+        <button id="bTruth" aria-pressed="false">Reveal truth</button>
+        <button id="bNew">New world</button>
+      </div>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Panels">
+        <button role="tab" data-t="node" id="tab-node" aria-controls="pane-node">Node</button>
+        <button role="tab" data-t="report" id="tab-report" aria-controls="pane-report">Report</button>
+        <button role="tab" data-t="log" id="tab-log" aria-controls="pane-log">Log</button>
+        <button role="tab" data-t="help" id="tab-help" aria-controls="pane-help">Help</button>
+      </div>
+      <div class="pane" id="pane-node" role="tabpanel" aria-labelledby="tab-node">
+        <div class="lbl">Path-finding</div>
+        <div class="seg" id="segAlgo"></div>
+        <p class="note" id="algoNote"></p>
+        <div class="lbl" style="margin-top:10px">Information to bring back</div>
+        <div class="seg seg2" id="segInfo"></div>
+        <div class="lbl" style="margin-top:10px">Ping radius where it stops</div>
+        <div class="seg seg5" id="segPing"></div>
+        <div class="plan" id="plan"></div>
+      </div>
+      <div class="pane" id="pane-report" role="tabpanel" aria-labelledby="tab-report" hidden>
+        <canvas id="rep" width="720" height="380"></canvas>
+        <div class="legend"><span style="--c:var(--cyan)">level</span><span style="--c:var(--coral)">energy spent on each step</span><span style="--c:var(--signal)">movement budget left</span></div>
+        <div class="status" id="repStatus">No runs yet. Commit a node to get your first report.</div>
+      </div>
+      <div class="pane" id="pane-log" role="tabpanel" aria-labelledby="tab-log" hidden>
+        <ul id="log"><li>Waiting for first commit.</li></ul>
+      </div>
+      <div class="pane" id="pane-help" role="tabpanel" aria-labelledby="tab-help" hidden>
+        <p class="hint" style="margin-top:0">Drawn: tap a cell to route there from the nearest node, or drag to trace a path. Greedy and Leveler: tap one of your nodes to launch from it. Numbered cells are confirmed; unnumbered are estimates; black is unknown. Red edges are cliffs; red wedges are radar bearings.</p>
+        <ul class="rules" id="rulesList" style="margin-top:8px"></ul>
+        <div class="worldline"><span id="worldDesc"></span><a href="#world">Edit world</a></div>
+      </div>
+      <div class="row"><button class="go" id="bGo">Commit node</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- WORLD VIEW -->
+<div class="grid" id="viewWorld" hidden>
+  <div class="stack">
+    <div class="card">
+      <h2>Preview (true terrain)</h2>
+      <canvas id="wmap" class="map" width="640" height="640" aria-label="Preview of the generated grid"></canvas>
+      <div class="row">
+        <label class="check" style="grid-column:auto"><input type="checkbox" id="ovCliff" checked> Cliffs and pits</label>
+        <label class="check" style="grid-column:auto"><input type="checkbox" id="ovRoute" checked> Shortest route to treasure</label>
+        <label class="check" style="grid-column:auto"><input type="checkbox" id="ovSmooth"> Show smooth source</label>
+      </div>
+      <div class="legend sq"><span style="--c:#ff2a2a">cliff edge</span><span style="--c:#965aff">pit (no way down)</span><span style="--c:#ff9d00">base and route</span><span style="--c:#ffffff">treasure</span></div>
+      <h2 style="margin-top:14px">Cells per level</h2>
+      <canvas id="hist" width="640" height="150" style="width:100%;height:75px;display:block;background:#000;border:1px solid var(--line);margin-top:8px"></canvas>
+      <div class="stats" id="wstats" style="margin-top:10px"></div>
+      <div id="genstate"></div>
+      <div class="row"><button class="go" id="bUse">Start a game on this world</button></div>
+      <div class="row"><button id="bReset">Reset to Hybrid defaults</button></div>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card"><div class="secs" id="wform"></div></div>
+  </div>
+</div>
+</div>
+
+<script src="../js/signal-search.js"></script>
+</body>
+</html>
