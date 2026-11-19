@@ -56,6 +56,16 @@
   function vi(a, b) { return mod(b, GV) * GU + mod(a, GU); }
   var fA = new Uint16Array(NF), fB = new Uint16Array(NF), fC = new Uint16Array(NF);
   var fTri = new Uint16Array(NF), fEdge = new Uint8Array(NF);
+  // lattice edges: id = (i * NJ + j) * 3 + type; 0 fifth (i,j)-(i+1,j), 1 minor third (i,j)-(i,j+1),
+  // 2 major third (i,j+1)-(i+1,j). edgeLo/edgeHi are the lower/upper pitch classes of the interval.
+  var NE = NI * NJ * 3, SEMIS = [7, 3, 4];
+  var edgeLo = new Int8Array(NE), edgeHi = new Int8Array(NE);
+  function eid(i, j, type) { return (mod(i, NI) * NJ + mod(j, NJ)) * 3 + type; }
+  for (var ie = 0; ie < NI; ie++) for (var je = 0; je < NJ; je++) for (var te = 0; te < 3; te++) {
+    var lo = te === 2 ? pitchAt(ie, je + 1) : pitchAt(ie, je), x = eid(ie, je, te);
+    edgeLo[x] = lo; edgeHi[x] = (lo + SEMIS[te]) % 12;
+  }
+  var fEid = new Int16Array(NF * 3).fill(-1); // per face: lattice edge under each of its 3 sides
   (function () {
     var f = 0;
     for (var b = 0; b < GV; b++) for (var a = 0; a < GU; a++) {
@@ -64,10 +74,17 @@
       fA[f] = v00; fB[f] = v10; fC[f] = v01;
       fTri[f] = cell + (la + lb + 1 <= S ? 0 : 1);
       fEdge[f] = (lb === 0 ? 1 : 0) | (la + lb + 1 === S ? 2 : 0) | (la === 0 ? 4 : 0);
+      var ci = a / S | 0, cj = b / S | 0;
+      if (lb === 0) fEid[f * 3] = eid(ci, cj, 0);
+      if (la + lb + 1 === S) fEid[f * 3 + 1] = eid(ci, cj, 2);
+      if (la === 0) fEid[f * 3 + 2] = eid(ci, cj, 1);
       f++;
       fA[f] = v10; fB[f] = v11; fC[f] = v01;
       fTri[f] = cell + (la + lb + 2 <= S ? 0 : 1);
       fEdge[f] = (la === S - 1 ? 1 : 0) | (lb === S - 1 ? 2 : 0) | (la + lb + 1 === S ? 4 : 0);
+      if (la === S - 1) fEid[f * 3] = eid(ci + 1, cj, 1);
+      if (lb === S - 1) fEid[f * 3 + 1] = eid(ci, cj + 1, 0);
+      if (la + lb + 1 === S) fEid[f * 3 + 2] = eid(ci, cj, 2);
       f++;
     }
   })();
@@ -116,7 +133,8 @@
   var selected = 0, neighbors = plr(0);
   var dirty = true, anim = null;
   var vel = { a: 0, b: 0 };             // drag inertia (orbit: rotation, skin: spin/roll)
-  var drawnFaces = [], drawnNodes = [];
+  var drawnFaces = [], drawnNodes = [], drawnEdges = [];
+  var selEdge = null;                   // selected interval {lo, hi, type} or null
   // walk
   var me = { x: 0.62, y: 0.62, h: 0, camH: 0, zoom: 1, phase: 0, moving: 0, tri: -1 };
   var cam = null;                       // smoothed walk camera {px,py,pz,ux,uy,uz}
@@ -253,7 +271,8 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.lineJoin = 'round';
-    drawnFaces.length = 0; drawnNodes.length = 0;
+    drawnFaces.length = 0; drawnNodes.length = 0; drawnEdges.length = 0;
+    var seq = 0;
     var lineCol = 'rgba(255,243,226,0.55)', lw = walk ? 1.4 : 1.1;
     var noteOn = activeNotes();
     for (var o = 0; o < order.length; o++) {
@@ -265,15 +284,25 @@
         ctx.beginPath(); ctx.moveTo(SX[A], SY[A]); ctx.lineTo(SX[B], SY[B]); ctx.lineTo(SX[C], SY[C]); ctx.closePath();
         ctx.fillStyle = col; ctx.fill();
         ctx.strokeStyle = col; ctx.lineWidth = 0.8; ctx.stroke(); // hides AA seams
-        var e = fEdge[it];
-        if (e) {
+        seq++;
+        drawnFaces.push(it, seq);
+        if (fEdge[it]) {
           ctx.beginPath();
-          if (e & 1) { ctx.moveTo(SX[A], SY[A]); ctx.lineTo(SX[B], SY[B]); }
-          if (e & 2) { ctx.moveTo(SX[B], SY[B]); ctx.lineTo(SX[C], SY[C]); }
-          if (e & 4) { ctx.moveTo(SX[C], SY[C]); ctx.lineTo(SX[A], SY[A]); }
+          var hl = null;
+          for (var s3 = 0; s3 < 3; s3++) {
+            var ed = fEid[it * 3 + s3]; if (ed < 0) continue;
+            var p1 = s3 === 0 ? A : s3 === 1 ? B : C, p2 = s3 === 0 ? B : s3 === 1 ? C : A;
+            ctx.moveTo(SX[p1], SY[p1]); ctx.lineTo(SX[p2], SY[p2]);
+            drawnEdges.push(ed, SX[p1], SY[p1], SX[p2], SY[p2], seq);
+            if (selEdge && edgeLo[ed] === selEdge.lo && edgeHi[ed] === selEdge.hi) (hl || (hl = [])).push(p1, p2);
+          }
           ctx.strokeStyle = lineCol; ctx.lineWidth = lw; ctx.stroke();
+          if (hl) {
+            ctx.beginPath();
+            for (var h2 = 0; h2 < hl.length; h2 += 2) { ctx.moveTo(SX[hl[h2]], SY[hl[h2]]); ctx.lineTo(SX[hl[h2 + 1]], SY[hl[h2 + 1]]); }
+            ctx.lineCap = 'round'; ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = walk ? 5 : 4; ctx.stroke(); ctx.lineCap = 'butt';
+          }
         }
-        drawnFaces.push(it);
       } else if (it < NF + NN) {
         var ni = it - NF, vv = nodeV[ni], pz = PZ[vv];
         var rad = Math.max(6, Math.min(walk ? 20 : 14, focal * 0.2 / pz));
@@ -374,6 +403,12 @@
     center = sum / 3 * 0.8 + 60 * 0.2; // smooth voice leading, gently pulled back to middle C
   }
   function playNote(pc) { playMidi(nearest(pc), 0.6, 0); }
+  function playInterval(lo, semis) {
+    var m = nearest(lo); if (m + semis > 71) m -= 12;
+    playMidi(m, 0.55, 0); playMidi(m + semis, 0.55, 0.22);
+    playMidi(m, 0.4, 0.6); playMidi(m + semis, 0.4, 0.6);
+    center = m + semis / 2;
+  }
 
   // ---------- piano ----------
   var keyEls = {}, keyTimers = {};
@@ -400,12 +435,12 @@
   var activeCache = null;
   function activeNotes() {
     if (activeCache) return activeCache;
-    var a = {}, ns = triadNotes(selected);
-    for (var i = 0; i < 3; i++) a[ns[i]] = true;
+    var a = {}, ns = selEdge ? [selEdge.lo, selEdge.hi] : triadNotes(selected);
+    for (var i = 0; i < ns.length; i++) a[ns[i]] = true;
     return (activeCache = a);
   }
   function select(t, play) {
-    selected = t; neighbors = plr(t); activeCache = null; dirty = true;
+    selected = t; neighbors = plr(t); selEdge = null; activeCache = null; dirty = true;
     var ns = triadNotes(t);
     document.getElementById('cName').textContent = triadName(t);
     document.getElementById('cNotes').textContent = ns.map(function (n) { return NAMES[n]; }).join(' · ') + ' · ' + (t < 12 ? 'major' : 'minor');
@@ -418,6 +453,28 @@
       box.appendChild(btn);
     });
     if (play) playTriad(t, true);
+  }
+  var INTERVAL_NAMES = ['perfect fifth', 'minor third', 'major third'];
+  function triadsWith(lo, hi) {
+    var out = [];
+    for (var t = 0; t < 24; t++) { var ns = triadNotes(t); if (ns.indexOf(lo) >= 0 && ns.indexOf(hi) >= 0) out.push(t); }
+    return out;
+  }
+  function selectInterval(ed, play) {
+    var type = ed % 3, lo = edgeLo[ed], hi = edgeHi[ed], both = triadsWith(lo, hi);
+    selEdge = { lo: lo, hi: hi, type: type };
+    selected = -1; neighbors = { P: both[0], L: both[1], R: -1 }; activeCache = null; dirty = true;
+    document.getElementById('cName').textContent = NAMES[lo] + '–' + NAMES[hi];
+    document.getElementById('cNotes').textContent = INTERVAL_NAMES[type] + ' · ' + SEMIS[type] + ' semitones';
+    var box = document.getElementById('plr'); box.textContent = '';
+    both.forEach(function (t) {
+      var btn = document.createElement('button');
+      btn.innerHTML = '<i>△</i>' + triadName(t);
+      btn.title = 'A chord that contains this interval (the triangle on that side of the edge)';
+      btn.addEventListener('click', function () { select(t, true); if (mode === 'walk') hopTo(t); });
+      box.appendChild(btn);
+    });
+    if (play) playInterval(lo, SEMIS[type]);
   }
   function hopTo(t) { // in walk mode, move to the nearest copy of triad t
     var best = -1, bd = 1e9;
@@ -441,7 +498,7 @@
       hint.textContent = 'Walk the lattice: each tile sounds its chord';
       audio();
     } else {
-      hint.textContent = m === 'skin' ? 'Drag ↔ slides the skin round the ring · drag ↕ rolls it through the hole' : 'Drag to spin · pinch to zoom · tap a triangle to play';
+      hint.textContent = m === 'skin' ? 'Drag ↔ slides the skin round the ring · drag ↕ rolls it through the hole' : 'Drag to spin · pinch to zoom · tap a dot, edge or triangle to play';
       if (prev === 'walk') { joy.id = look.id = null; showJoy(false); }
     }
   }
@@ -534,10 +591,25 @@
     for (var n = drawnNodes.length - 4; n >= 0; n -= 4) {
       if (Math.hypot(x - drawnNodes[n + 1], y - drawnNodes[n + 2]) <= drawnNodes[n + 3] + 3) { playNote(nodePitch[drawnNodes[n]]); return; }
     }
-    for (var i = drawnFaces.length - 1; i >= 0; i--) {
+    var face = -1, faceSeq = -1;
+    for (var i = drawnFaces.length - 2; i >= 0; i -= 2) {
       var f = drawnFaces[i];
-      if (inTri(x, y, SX[fA[f]], SY[fA[f]], SX[fB[f]], SY[fB[f]], SX[fC[f]], SY[fC[f]])) { select(triTriad[fTri[f]], true); return; }
+      if (inTri(x, y, SX[fA[f]], SY[fA[f]], SX[fB[f]], SY[fB[f]], SX[fC[f]], SY[fC[f]])) { face = f; faceSeq = drawnFaces[i + 1]; break; }
     }
+    // an edge wins if it lies within a finger's reach and isn't hidden behind the face being touched
+    var tol = 11, best = -1, bestSeq = -1, bestD = tol;
+    for (var e = 0; e < drawnEdges.length; e += 6) {
+      var es = drawnEdges[e + 5]; if (es < faceSeq) continue;
+      var d = segDist(x, y, drawnEdges[e + 1], drawnEdges[e + 2], drawnEdges[e + 3], drawnEdges[e + 4]);
+      if (d < tol && (es > bestSeq || (es === bestSeq && d < bestD))) { best = drawnEdges[e]; bestSeq = es; bestD = d; }
+    }
+    if (best >= 0) { selectInterval(best, true); return; }
+    if (face >= 0) select(triTriad[fTri[face]], true);
+  }
+  function segDist(px, py, ax, ay, bx, by) {
+    var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    return Math.hypot(px - ax - t * dx, py - ay - t * dy);
   }
   function inTri(px, py, ax, ay, bx, by, cx, cy) {
     var d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by), d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy), d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
