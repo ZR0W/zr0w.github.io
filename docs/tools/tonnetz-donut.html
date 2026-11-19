@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Tonnetz Donut – Webtools</title>
+<!-- Full-page game with its own warm "wooden studio" theme: Simple.css is intentionally omitted (it would fight the full-screen canvas layout). -->
+<style>
+:root{
+  --ink:#140c08; --panel:rgba(28,18,12,.82); --line:rgba(255,226,190,.16); --text:#f6e7d2; --muted:#b79a7c;
+  --warm:#ff7a59; --cool:#3fd0c9; --gold:#ffd27a;
+  --ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--ui);font-size:14px;overscroll-behavior:none}
+body{background:radial-gradient(ellipse at 50% 45%,#3a2416 0%,#1d120b 55%,#0d0806 100%)}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#stage.dragging{cursor:grabbing}
+button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+button:hover{border-color:rgba(255,226,190,.4)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button.on{background:var(--text);color:#24150c;border-color:var(--text)}
+.top{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 12px 8px;pointer-events:none}
+.top>*{pointer-events:auto}
+.back{color:var(--muted);text-decoration:none;font-size:13px;padding:6px 4px}
+h1{margin:0;font-size:18px;font-weight:800;letter-spacing:.02em;flex:1;white-space:nowrap}
+h1 span{color:var(--warm)}
+.icon{width:34px;height:34px;padding:0;display:grid;place-items:center;font-weight:700}
+.modes{position:fixed;top:calc(52px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;padding:3px;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:999px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.modes button{border:0;background:transparent;padding:6px 14px;font-weight:600}
+.modes button.on{background:var(--text);color:#24150c}
+.side{position:fixed;right:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
+.side button{width:48px;padding:6px 0;border-radius:12px;font-size:10.5px;line-height:1.15;display:flex;flex-direction:column;align-items:center;gap:2px}
+.side button b{font-size:16px;line-height:1}
+.bottom{position:fixed;left:0;right:0;bottom:0;padding:0 10px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.card{pointer-events:auto;align-self:flex-start;max-width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.chord{display:flex;align-items:baseline;gap:10px}
+#cName{font-size:26px;font-weight:800;line-height:1}
+#cNotes{color:var(--muted);font-size:13px}
+.plr{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.plr button{padding:4px 10px;font-size:12.5px;border-radius:8px}
+.plr button i{font-style:normal;color:var(--gold);font-weight:700;margin-right:4px}
+#hint{color:var(--muted);font-size:12px;margin-top:6px}
+.piano{pointer-events:none;position:relative;height:46px;max-width:520px;width:100%;align-self:center;display:flex;border-radius:6px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.45)}
+.piano .w{flex:1;background:#efe4d4;border-right:1px solid #b8a68e;transition:background .12s}
+.piano .w.on{background:var(--gold)}
+.piano .k{position:absolute;top:0;height:60%;background:#24170f;border-radius:0 0 3px 3px;transition:background .12s}
+.piano .k.on{background:var(--warm)}
+.joy{position:fixed;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,226,190,.35);background:rgba(255,226,190,.06);pointer-events:none;display:none}
+.joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,226,190,.55);box-shadow:0 0 14px rgba(255,210,122,.4)}
+.walkhud{position:fixed;left:50%;top:calc(98px + env(safe-area-inset-top));width:max-content;max-width:90vw;transform:translateX(-50%);color:var(--muted);font-size:12px;text-align:center;pointer-events:none;display:none;text-shadow:0 1px 3px #000}
+body.walk .walkhud{display:block}
+body.walk .side .orbitonly{display:none}
+.help{position:fixed;inset:0;background:rgba(10,6,4,.78);display:none;align-items:center;justify-content:center;padding:18px;z-index:5}
+.help.show{display:flex}
+.help .box{max-width:460px;max-height:100%;overflow:auto;background:#241710;border:1px solid var(--line);border-radius:16px;padding:16px 18px;line-height:1.5}
+.help h2{margin:0 0 6px;font-size:18px}
+.help p{margin:8px 0}
+.help kbd{background:#3a281c;border-radius:4px;padding:0 5px;font-size:12px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle}
+@media (min-width:760px){ .bottom{flex-direction:row;align-items:flex-end} .piano{align-self:flex-end} }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="Tonnetz torus: drag to rotate, tap a triangle to hear its chord"></canvas>
+
+<div class="top">
+  <a class="back" href="../index.html">← Back</a>
+  <h1>Tonnetz <span>Donut</span></h1>
+  <button class="icon" id="helpBtn" aria-label="What is this?">?</button>
+</div>
+
+<div class="modes" role="tablist" aria-label="Interaction mode">
+  <button id="mOrbit" class="on" role="tab">Orbit</button>
+  <button id="mSkin" role="tab">Skin</button>
+  <button id="mWalk" role="tab">Walk</button>
+</div>
+
+<div class="side">
+  <button id="flipBtn" class="orbitonly" title="Roll the skin half a turn through the hole (or double-tap)"><b>⟳</b>Flip</button>
+  <button id="overBtn" class="orbitonly" title="Turn the donut over"><b>⇅</b>Turn</button>
+  <button id="autoBtn" class="orbitonly" title="Keep the skin rolling"><b>∞</b>Roll</button>
+  <button id="soundBtn" class="on" title="Sound on/off"><b>♪</b>Sound</button>
+  <button id="resetBtn" title="Reset view"><b>⌂</b>Reset</button>
+</div>
+
+<div class="bottom">
+  <div class="card">
+    <div class="chord"><div id="cName">C</div><div id="cNotes">C · E · G · major</div></div>
+    <div class="plr" id="plr"></div>
+    <div id="hint">Drag to spin · pinch to zoom · tap a triangle to play</div>
+  </div>
+  <div class="piano" id="piano" aria-hidden="true"></div>
+</div>
+
+<div class="joy" id="joy"><i></i></div>
+<div class="walkhud">Left thumb: walk · right thumb: look · every tile you step on plays its chord</div>
+
+<div class="help" id="help" role="dialog" aria-label="About the Tonnetz">
+  <div class="box">
+    <h2>Euler's Tonnetz, on a donut</h2>
+    <p>The <b>Tonnetz</b> ("tone network") lays the 12 notes on a triangular grid. Here one direction steps by <b>perfect fifths</b> (around the ring), one by <b>minor thirds</b> (around the tube) and the diagonals by <b>major thirds</b>.</p>
+    <p>Every small triangle is a <b>triad</b>: <span class="sw" style="background:#e9674a"></span> warm = major, <span class="sw" style="background:#2fa9a4"></span> cool = minor. Neighbouring triangles share two notes, and crossing an edge is one of the neo‑Riemannian moves: <b>P</b> (parallel, C ↔ Cm), <b>L</b> (leading‑tone, C ↔ Em), <b>R</b> (relative, C ↔ Am).</p>
+    <p>Treat C♯ and D♭ as the same note and the flat grid wraps round in both directions, so it closes up into a <b>torus</b>: 12 notes, 24 triads. This donut shows the grid four times over, so each chord appears four times, and they all light up together.</p>
+    <p><b>Orbit</b>: drag to tumble the donut, pinch or scroll to zoom, two‑finger twist to roll it. <b>Skin</b>: drag sideways to slide the skin around the ring, up and down to roll it through the hole. <b>Flip</b> (or double‑tap) rolls the skin half a turn through the centre.</p>
+    <p><b>Walk</b>: become a little character on the surface. Left thumb (or <kbd>WASD</kbd>) walks, right thumb (or <kbd>Q</kbd>/<kbd>E</kbd>) turns the camera. Each tile you step on sounds its chord, voiced to move as smoothly as possible from the last one.</p>
+    <button id="helpClose" class="on">Got it</button>
+  </div>
+</div>
+
+<script src="../js/tonnetz-donut.js"></script>
+</body>
+</html>
