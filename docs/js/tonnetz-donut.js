@@ -405,8 +405,7 @@
   function playNote(pc) { playMidi(nearest(pc), 0.6, 0); }
   function playInterval(lo, semis) {
     var m = nearest(lo); if (m + semis > 71) m -= 12;
-    playMidi(m, 0.55, 0); playMidi(m + semis, 0.55, 0.22);
-    playMidi(m, 0.4, 0.6); playMidi(m + semis, 0.4, 0.6);
+    playMidi(m, 0.55, 0); playMidi(m + semis, 0.55, 0);
     center = m + semis / 2;
   }
 
