@@ -137,7 +137,7 @@
   var selEdge = null;                   // selected interval {lo, hi, type} or null
   // walk
   var me = { x: 0.62, y: 0.62, h: 0, camH: 0, zoom: 1, phase: 0, moving: 0, tri: -1, hop: null, air: 0 };
-  var HOP_LEN = 1.5, HOP_TIME = 0.5, HOP_HEIGHT = 0.6; // hop: 1.5 lattice edges forward, in half a second
+  var HOP_TIME = 0.95, HOP_HEIGHT = 0.95, AIR_SPEED = 2.6; // straight-up hop; steering in the air reaches ~1.5 edges
   var cam = null;                       // smoothed walk camera {px,py,pz,ux,uy,uz}
   var joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: null, x: 0, y: 0 };
   var keys = {};
@@ -346,15 +346,21 @@
       out[key] = [cxs + focal * v[0] / v[2], cys - focal * v[1] / v[2], focal / v[2]];
     }
     out.depth = toView(pts.hip)[2] - 0.25;
-    out.shadow = 1 / (1 + air * 1.6);
+    out.shadow = 1 / (1 + air * 0.8);
     return out;
   }
   var HERO = 0.9;
   function drawHero(h) {
     var sc = h.hip[2] * HERO;
     ctx.lineCap = 'round';
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.ellipse(h.base[0], h.base[1], 0.2 * sc * h.shadow, 0.09 * sc * h.shadow, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.38)';
+    ctx.beginPath(); ctx.ellipse(h.base[0], h.base[1], 0.17 * sc * h.shadow, 0.08 * sc * h.shadow, 0, 0, TAU); ctx.fill();
+    if (me.hop) { // landing marker: where the feet will touch down
+      ctx.strokeStyle = 'rgba(255,243,196,.9)'; ctx.lineWidth = Math.max(1.5, 0.02 * sc);
+      ctx.beginPath(); ctx.ellipse(h.base[0], h.base[1], 0.11 * sc, 0.05 * sc, 0, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#fff3c4';
+      ctx.beginPath(); ctx.arc(h.base[0], h.base[1], Math.max(2, 0.018 * sc), 0, TAU); ctx.fill();
+    }
     ctx.strokeStyle = '#2a170c'; ctx.lineWidth = 0.07 * sc;
     ctx.beginPath(); ctx.moveTo(h.hip[0], h.hip[1]); ctx.lineTo(h.footL[0], h.footL[1]); ctx.moveTo(h.hip[0], h.hip[1]); ctx.lineTo(h.footR[0], h.footR[1]); ctx.stroke();
     ctx.lineWidth = 0.055 * sc;
@@ -652,35 +658,33 @@
     if (keys.q) { me.camH += dt * 1.8; dirty = true; }
     if (keys.e) { me.camH -= dt * 1.8; dirty = true; }
     var m = Math.min(1, Math.hypot(jx, jy));
+    var landed = false;
     if (me.hop) {
-      var hp = me.hop; hp.t += dt;
-      var u = Math.min(1, hp.t / HOP_TIME);
-      me.x = mod(hp.x0 + hp.dx * u, NI); me.y = mod(hp.y0 + hp.dy * u, NJ);
+      me.hop.t += dt;
+      var u = Math.min(1, me.hop.t / HOP_TIME);
       me.air = Math.sin(Math.PI * u) * HOP_HEIGHT;
       dirty = true;
-      if (u >= 1) { me.hop = null; me.air = 0; me.tri = -1; } // landing always sounds the tile, even the same one
-      else return;                                           // tiles under the arc stay silent
-    } else if (m > 0.08) {
+      if (u >= 1) { me.hop = null; me.air = 0; landed = true; }
+    }
+    if (m > 0.08) {
       var dir = me.camH - Math.atan2(jx, -jy);
       me.h += angDiff(dir, me.h) * Math.min(1, dt * 12);
       var ad = angDiff(me.h, me.camH);
       if (Math.abs(ad) < 1.9) me.camH += ad * Math.min(1, dt * 1.6 * m);
-      var s = surf(me.x, me.y), sp = 2.1 * m * dt;
+      var s = surf(me.x, me.y), sp = (me.hop ? AIR_SPEED : 2.1) * m * dt;
       me.x = mod(me.x + Math.cos(me.h) * sp / s.w * NI / TAU, NI);
       me.y = mod(me.y + Math.sin(me.h) * sp / rr * NJ / TAU, NJ);
-      me.phase += dt * 11 * m; me.moving = Math.min(1, me.moving + dt * 6);
+      if (!me.hop) { me.phase += dt * 11 * m; me.moving = Math.min(1, me.moving + dt * 6); }
       dirty = true;
     } else if (me.moving > 0) { me.moving = Math.max(0, me.moving - dt * 5); dirty = true; }
     if (cam) dirty = true; // camera easing
+    if (me.hop) return;                  // tiles passed over in the air stay silent
     var tri = triAt(me.x, me.y);
-    if (tri !== me.tri) { me.tri = tri; select(triTriad[tri], true); }
+    if (tri !== me.tri || landed) { me.tri = tri; select(triTriad[tri], true); } // landing always sounds its tile
   }
   function hop() {
     if (mode !== 'walk' || me.hop) return;
-    var s = surf(me.x, me.y);
-    // heading in lattice units (surface speed scaled by the local ring/tube radius), normalised to HOP_LEN edges
-    var dx = Math.cos(me.h) / s.w * NI / TAU, dy = Math.sin(me.h) / rr * NJ / TAU, l = Math.hypot(dx, dy) || 1;
-    me.hop = { t: 0, x0: me.x, y0: me.y, dx: dx / l * HOP_LEN, dy: dy / l * HOP_LEN };
+    me.hop = { t: 0 }; me.moving = 0;
     audio(); dirty = true;
   }
   function angDiff(a, b) { return mod(a - b + Math.PI, TAU) - Math.PI; }
