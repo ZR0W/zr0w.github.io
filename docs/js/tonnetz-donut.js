@@ -136,7 +136,8 @@
   var drawnFaces = [], drawnNodes = [], drawnEdges = [];
   var selEdge = null;                   // selected interval {lo, hi, type} or null
   // walk
-  var me = { x: 0.62, y: 0.62, h: 0, camH: 0, zoom: 1, phase: 0, moving: 0, tri: -1 };
+  var me = { x: 0.62, y: 0.62, h: 0, camH: 0, zoom: 1, phase: 0, moving: 0, tri: -1, hop: null, air: 0 };
+  var HOP_LEN = 1.5, HOP_TIME = 0.5, HOP_HEIGHT = 0.6; // hop: 1.5 lattice edges forward, in half a second
   var cam = null;                       // smoothed walk camera {px,py,pz,ux,uy,uz}
   var joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, look = { id: null, x: 0, y: 0 };
   var keys = {};
@@ -329,10 +330,12 @@
     var s = surf(me.x, me.y), ch = Math.cos(me.h), sh = Math.sin(me.h);
     var F = [ch * s.tu[0] + sh * s.tv[0], ch * s.tu[1] + sh * s.tv[1], ch * s.tu[2] + sh * s.tv[2]];
     var Rg = cross(F, s.n);
-    var K = HERO, bob = Math.abs(Math.sin(me.phase)) * 0.05 * me.moving, swing = Math.sin(me.phase) * 0.11 * K * me.moving;
-    function at(u, f, rgt) { return [s.p[0] + s.n[0] * u + F[0] * f + Rg[0] * rgt, s.p[1] + s.n[1] * u + F[1] * f + Rg[1] * rgt, s.p[2] + s.n[2] * u + F[2] * f + Rg[2] * rgt]; }
+    var K = HERO, air = me.air, bob = Math.abs(Math.sin(me.phase)) * 0.05 * me.moving, swing = Math.sin(me.phase) * 0.11 * K * me.moving;
+    if (me.hop) { bob = 0; swing = 0; }
+    function at(u, f, rgt) { u += air; return at0(u, f, rgt); }
+    function at0(u, f, rgt) { return [s.p[0] + s.n[0] * u + F[0] * f + Rg[0] * rgt, s.p[1] + s.n[1] * u + F[1] * f + Rg[1] * rgt, s.p[2] + s.n[2] * u + F[2] * f + Rg[2] * rgt]; }
     var pts = {
-      base: at(0.01, 0, 0), footL: at(0.02, swing, -0.08 * K), footR: at(0.02, -swing, 0.08 * K),
+      base: at0(0.01, 0, 0), footL: at(me.hop ? 0.09 : 0.02, swing, -0.08 * K), footR: at(me.hop ? 0.09 : 0.02, -swing, 0.08 * K),
       hip: at((0.22 + bob) * K, 0, 0), neck: at((0.46 + bob) * K, 0, 0), head: at((0.6 + bob) * K, 0, 0), nose: at((0.6 + bob) * K, 0.1 * K, 0),
       handL: at((0.3 + bob) * K, -swing, -0.15 * K), handR: at((0.3 + bob) * K, swing, 0.15 * K), shoulder: at((0.42 + bob) * K, 0, 0)
     };
@@ -343,6 +346,7 @@
       out[key] = [cxs + focal * v[0] / v[2], cys - focal * v[1] / v[2], focal / v[2]];
     }
     out.depth = toView(pts.hip)[2] - 0.25;
+    out.shadow = 1 / (1 + air * 1.6);
     return out;
   }
   var HERO = 0.9;
@@ -350,7 +354,7 @@
     var sc = h.hip[2] * HERO;
     ctx.lineCap = 'round';
     ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.ellipse(h.base[0], h.base[1], 0.2 * sc, 0.09 * sc, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(h.base[0], h.base[1], 0.2 * sc * h.shadow, 0.09 * sc * h.shadow, 0, 0, TAU); ctx.fill();
     ctx.strokeStyle = '#2a170c'; ctx.lineWidth = 0.07 * sc;
     ctx.beginPath(); ctx.moveTo(h.hip[0], h.hip[1]); ctx.lineTo(h.footL[0], h.footL[1]); ctx.moveTo(h.hip[0], h.hip[1]); ctx.lineTo(h.footR[0], h.footR[1]); ctx.stroke();
     ctx.lineWidth = 0.055 * sc;
@@ -648,7 +652,15 @@
     if (keys.q) { me.camH += dt * 1.8; dirty = true; }
     if (keys.e) { me.camH -= dt * 1.8; dirty = true; }
     var m = Math.min(1, Math.hypot(jx, jy));
-    if (m > 0.08) {
+    if (me.hop) {
+      var hp = me.hop; hp.t += dt;
+      var u = Math.min(1, hp.t / HOP_TIME);
+      me.x = mod(hp.x0 + hp.dx * u, NI); me.y = mod(hp.y0 + hp.dy * u, NJ);
+      me.air = Math.sin(Math.PI * u) * HOP_HEIGHT;
+      dirty = true;
+      if (u >= 1) { me.hop = null; me.air = 0; me.tri = -1; } // landing always sounds the tile, even the same one
+      else return;                                           // tiles under the arc stay silent
+    } else if (m > 0.08) {
       var dir = me.camH - Math.atan2(jx, -jy);
       me.h += angDiff(dir, me.h) * Math.min(1, dt * 12);
       var ad = angDiff(me.h, me.camH);
@@ -662,6 +674,14 @@
     if (cam) dirty = true; // camera easing
     var tri = triAt(me.x, me.y);
     if (tri !== me.tri) { me.tri = tri; select(triTriad[tri], true); }
+  }
+  function hop() {
+    if (mode !== 'walk' || me.hop) return;
+    var s = surf(me.x, me.y);
+    // heading in lattice units (surface speed scaled by the local ring/tube radius), normalised to HOP_LEN edges
+    var dx = Math.cos(me.h) / s.w * NI / TAU, dy = Math.sin(me.h) / rr * NJ / TAU, l = Math.hypot(dx, dy) || 1;
+    me.hop = { t: 0, x0: me.x, y0: me.y, dx: dx / l * HOP_LEN, dy: dy / l * HOP_LEN };
+    audio(); dirty = true;
   }
   function angDiff(a, b) { return mod(a - b + Math.PI, TAU) - Math.PI; }
 
@@ -692,6 +712,9 @@
     document.getElementById('flipBtn').onclick = flip;
     document.getElementById('overBtn').onclick = turnOver;
     document.getElementById('autoBtn').onclick = function () { autoRoll = !autoRoll; this.classList.toggle('on', autoRoll); };
+    var jb = document.getElementById('jumpBtn');
+    jb.addEventListener('pointerdown', function (e) { e.preventDefault(); hop(); });
+    jb.addEventListener('click', function (e) { if (e.detail === 0) hop(); }); // keyboard activation
     document.getElementById('soundBtn').onclick = function () { sound = !sound; this.classList.toggle('on', sound); if (sound) audio(); };
     document.getElementById('resetBtn').onclick = function () { if (mode === 'walk') { me.zoom = 1; me.camH = me.h; cam = null; dirty = true; } else resetView(); };
     var help = document.getElementById('help');
@@ -703,6 +726,7 @@
       var k = e.key.toLowerCase(); keys[k] = true;
       if (k === 'escape') { help.classList.remove('show'); if (mode === 'walk') setMode('orbit'); }
       if (k === 'f' && mode !== 'walk') flip();
+      if ((k === ' ' || k === 'j') && mode === 'walk' && !e.repeat) hop();
       if (k.indexOf('arrow') === 0 || k === ' ') e.preventDefault();
     });
     window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
